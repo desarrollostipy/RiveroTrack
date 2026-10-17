@@ -1,17 +1,24 @@
 ﻿import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { supabase } from '../../../lib/supabase'
 import { gestionarAcceso } from '../../../lib/api'
 import { esCiValida, limpiarCi } from '../../../lib/acceso'
 import type { Alumno } from '../../../lib/tipos'
 import { Boton, Campo, Hoja, MensajeError, MensajeOk, Tarjeta, Titulo } from '../../../components/ui'
 
+export type EstadoAcceso = { pin?: string; ci?: string; errorAcceso?: string }
+
 // Crear el acceso del alumno (CI + PIN aleatorio) y resetear el PIN.
+// Si el acceso se creó al dar de alta, llega el PIN para mostrarlo acá.
 export function Acceso({ alumno, onCambio }: { alumno: Alumno; onCambio: () => void }) {
-  const [ci, setCi] = useState('')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const recibido = (location.state ?? {}) as EstadoAcceso
+  const [ci, setCi] = useState(recibido.errorAcceso ? (recibido.ci ?? '') : '')
   const [ciActual, setCiActual] = useState<string | null>(null)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(recibido.errorAcceso ?? '')
   const [trabajando, setTrabajando] = useState(false)
-  const [pin, setPin] = useState<{ pin: string; ci: string } | null>(null)
+  const [pin, setPin] = useState<{ pin: string; ci: string } | null>(recibido.pin ? { pin: recibido.pin, ci: recibido.ci ?? '' } : null)
   const [copiado, setCopiado] = useState(false)
 
   useEffect(() => {
@@ -75,7 +82,16 @@ export function Acceso({ alumno, onCambio }: { alumno: Alumno; onCambio: () => v
       )}
       <MensajeError>{error}</MensajeError>
 
-      <Hoja titulo="PIN temporal" abierta={!!pin} onCerrar={() => (setPin(null), setCopiado(false))}>
+      <Hoja
+        titulo="PIN temporal"
+        abierta={!!pin}
+        onCerrar={() => {
+          setPin(null)
+          setCopiado(false)
+          // Que el PIN no vuelva a aparecer si se recarga la página.
+          if (location.state) navigate(location.pathname + location.search, { replace: true, state: null })
+        }}
+      >
         <p className="text-texto-2">Pasale estos datos a {alumno.nombre.split(' ')[0]}. Al ingresar, va a tener que elegir su propio PIN.</p>
         <div className="rounded-2xl bg-white p-4 text-center">
           <p className="text-sm text-texto-2">CI {pin?.ci}</p>

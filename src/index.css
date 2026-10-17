@@ -31,3 +31,9 @@
     @apply outline-2 outline-offset-2 outline-azul;
   }
 }
+
+/* Barra/distintivo que Netlify agrega a las páginas publicadas: no se muestra en la app. */
+#nl-hud-frame,
+iframe[title='Netlify'] {
+  display: none !important;
+}

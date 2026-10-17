@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { cargarAlumno, mensajeError } from '../../lib/consultas'
 import { leerMonto, leerNumero, miles } from '../../lib/formato'
+import { gestionarAcceso } from '../../lib/api'
+import { esCiValida, limpiarCi } from '../../lib/acceso'
+import type { EstadoAcceso } from './ficha/Acceso'
 import type { Alumno, Nivel } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { AreaTexto, Boton, Campo, Cargando, MensajeError, Opciones } from '../../components/ui'
@@ -27,6 +30,8 @@ export default function AlumnoForm() {
   const [dia, setDia] = useState('')
   const [activo, setActivo] = useState(true)
   const [notas, setNotas] = useState('')
+  const [tieneAcceso, setTieneAcceso] = useState(false)
+  const [ci, setCi] = useState('')
 
   useEffect(() => {
     if (editando) {
@@ -42,6 +47,7 @@ export default function AlumnoForm() {
         setCuota(miles(a.cuota_mensual))
         setDia(String(a.dia_vencimiento))
         setActivo(a.activo)
+        setTieneAcceso(!!a.profile_id)
         setNotas(n.data?.notas ?? '')
         setListo(true)
       })
@@ -70,6 +76,7 @@ export default function AlumnoForm() {
     const alt = leerNumero(altura)
     if (fc !== null && (fc < 100 || fc > 230)) return setError('La FC máxima va de 100 a 230.')
     if (alt !== null && (alt < 100 || alt > 230)) return setError('La altura va de 100 a 230 cm.')
+    if (ci && !esCiValida(ci)) return setError('La CI tiene que ser solo números (o dejala vacía para darle acceso más tarde).')
 
     const datos = {
       nombre: nombre.trim(),
@@ -98,7 +105,14 @@ export default function AlumnoForm() {
       }
       const { error: errNotas } = await supabase.from('notas_privadas').upsert({ alumno_id: alumnoId, notas: notas.trim() })
       if (errNotas) throw errNotas
-      navigate(`/alumnos/${alumnoId}`, { replace: true })
+
+      // Acceso a la app: CI + PIN temporal aleatorio (se muestra en la ficha).
+      let estado: EstadoAcceso | undefined
+      if (ci && !tieneAcceso) {
+        const r = await gestionarAcceso<{ pin: string }>({ accion: 'crear-acceso', alumno_id: alumnoId!, ci: limpiarCi(ci) })
+        estado = r.error !== null ? { ci: limpiarCi(ci), errorAcceso: `El alumno se guardó, pero no se pudo crear el acceso: ${r.error}` } : { pin: r.datos.pin, ci: limpiarCi(ci) }
+      }
+      navigate(`/alumnos/${alumnoId}`, { replace: true, state: estado })
     } catch (err) {
       setError(mensajeError(err))
       setGuardando(false)
@@ -147,6 +161,16 @@ export default function AlumnoForm() {
           />
           <Campo id="dia" label="Vence el día (1 a 28)" inputMode="numeric" value={dia} onChange={(e) => setDia(e.target.value.replace(/\D/g, ''))} />
         </div>
+        {!tieneAcceso && (
+          <Campo
+            id="ci-ingreso"
+            label="Número de CI para ingresar a la app (opcional)"
+            inputMode="numeric"
+            value={ci}
+            onChange={(e) => setCi(e.target.value.replace(/\D/g, ''))}
+            ayuda="Si la cargás, se crea su acceso con un PIN temporal que te mostramos al guardar. Si no, se lo podés dar después desde su ficha."
+          />
+        )}
         <AreaTexto id="notas" label="Notas privadas (solo las ves vos)" value={notas} onChange={(e) => setNotas(e.target.value)} />
         {editando && (
           <label className="flex min-h-11 items-center gap-3">
