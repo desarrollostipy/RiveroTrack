@@ -32,6 +32,7 @@ export default function AlumnoForm() {
   const [notas, setNotas] = useState('')
   const [tieneAcceso, setTieneAcceso] = useState(false)
   const [ci, setCi] = useState('')
+  const [darAcceso, setDarAcceso] = useState(true)
 
   useEffect(() => {
     if (editando) {
@@ -48,6 +49,8 @@ export default function AlumnoForm() {
         setDia(String(a.dia_vencimiento))
         setActivo(a.activo)
         setTieneAcceso(!!a.profile_id)
+        setCi(a.ci ?? '')
+        setDarAcceso(false)
         setNotas(n.data?.notas ?? '')
         setListo(true)
       })
@@ -76,7 +79,7 @@ export default function AlumnoForm() {
     const alt = leerNumero(altura)
     if (fc !== null && (fc < 100 || fc > 230)) return setError('La FC máxima va de 100 a 230.')
     if (alt !== null && (alt < 100 || alt > 230)) return setError('La altura va de 100 a 230 cm.')
-    if (ci && !esCiValida(ci)) return setError('La CI tiene que ser solo números (o dejala vacía para darle acceso más tarde).')
+    if (ci && !esCiValida(ci)) return setError('La CI tiene que ser solo números.')
 
     const datos = {
       nombre: nombre.trim(),
@@ -89,6 +92,8 @@ export default function AlumnoForm() {
       cuota_mensual: leerMonto(cuota),
       dia_vencimiento: diaN,
       activo,
+      // La CI no se cambia si ya tiene acceso (es su usuario para ingresar).
+      ...(tieneAcceso ? {} : { ci: limpiarCi(ci) || null }),
       ...(sexo === 'M' ? { comparte_ciclo: false } : {}),
     }
 
@@ -108,7 +113,7 @@ export default function AlumnoForm() {
 
       // Acceso a la app: CI + PIN temporal aleatorio (se muestra en la ficha).
       let estado: EstadoAcceso | undefined
-      if (ci && !tieneAcceso) {
+      if (ci && !tieneAcceso && darAcceso) {
         const r = await gestionarAcceso<{ pin: string }>({ accion: 'crear-acceso', alumno_id: alumnoId!, ci: limpiarCi(ci) })
         estado = r.error !== null ? { ci: limpiarCi(ci), errorAcceso: `El alumno se guardó, pero no se pudo crear el acceso: ${r.error}` } : { pin: r.datos.pin, ci: limpiarCi(ci) }
       }
@@ -161,15 +166,28 @@ export default function AlumnoForm() {
           />
           <Campo id="dia" label="Vence el día (1 a 28)" inputMode="numeric" value={dia} onChange={(e) => setDia(e.target.value.replace(/\D/g, ''))} />
         </div>
-        {!tieneAcceso && (
-          <Campo
-            id="ci-ingreso"
-            label="Número de CI para ingresar a la app (opcional)"
-            inputMode="numeric"
-            value={ci}
-            onChange={(e) => setCi(e.target.value.replace(/\D/g, ''))}
-            ayuda="Si la cargás, se crea su acceso con un PIN temporal que te mostramos al guardar. Si no, se lo podés dar después desde su ficha."
-          />
+        {tieneAcceso ? (
+          <p className="text-sm">
+            <span className="text-texto-2">Número de CI:</span> <strong className="font-mono">{ci || '—'}</strong>{' '}
+            <span className="text-texto-2">(es su usuario para ingresar; no se cambia acá)</span>
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <Campo
+              id="ci-ingreso"
+              label="Número de CI"
+              inputMode="numeric"
+              value={ci}
+              onChange={(e) => setCi(e.target.value.replace(/\D/g, ''))}
+              ayuda="No puede haber dos alumnos con la misma CI."
+            />
+            {ci && (
+              <label className="flex min-h-11 items-center gap-3">
+                <input type="checkbox" className="h-5 w-5" checked={darAcceso} onChange={(e) => setDarAcceso(e.target.checked)} />
+                <span>Crear su acceso a la app ahora (PIN temporal)</span>
+              </label>
+            )}
+          </div>
         )}
         <AreaTexto id="notas" label="Notas privadas (solo las ves vos)" value={notas} onChange={(e) => setNotas(e.target.value)} />
         {editando && (

@@ -150,6 +150,7 @@ export async function cargarAlumnoPrueba(db: SupabaseClient, indice: number, idE
       .from('alumnos')
       .insert({
         profile_id: profileId,
+        ci: a.ci,
         nombre: a.nombre,
         fecha_nacimiento: a.nacimiento,
         objetivo: a.objetivo,

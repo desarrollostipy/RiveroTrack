@@ -8,6 +8,7 @@ export type Molestia = 'ninguna' | 'leves' | 'fuertes'
 export type Alumno = {
   id: string
   profile_id: string | null
+  ci: string | null
   nombre: string
   fecha_nacimiento: string | null
   objetivo: string | null

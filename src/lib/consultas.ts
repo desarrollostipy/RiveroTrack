@@ -54,6 +54,8 @@ export async function cargarAlumno(id: string): Promise<Alumno | null> {
 export function mensajeError(e: unknown, porDefecto = 'No se pudo guardar. Intentá de nuevo.'): string {
   const m = (e as { message?: string; code?: string })?.message ?? ''
   const code = (e as { code?: string })?.code
+  if (code === '23505' && m.includes('alumnos_ci')) return 'Ya hay otro alumno con esa CI.'
+  if (code === '23505' && m.includes('solicitudes_alta_ci')) return 'Ya hay una solicitud pendiente con esa CI.'
   if (code === '23505') return 'Ya existe un registro igual.'
   if (code === '23503') return 'No se puede borrar: tiene datos asociados (por ejemplo, sesiones registradas o pagos).'
   if (code === '42501') return 'No tenés permiso para hacer esto.'

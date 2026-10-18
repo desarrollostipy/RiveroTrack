@@ -70,8 +70,12 @@ async function solicitarAlta(admin: SupabaseClient, p: Record<string, unknown>) 
   if (altura !== null && !(altura >= 100 && altura <= 230)) return error('La altura va de 100 a 230 cm.')
   if (peso !== null && !(peso >= 25 && peso <= 250)) return error('Revisá el peso.')
 
+  // Una CI = una persona.
   const { data: existente } = await admin.from('profiles').select('id').eq('ci', ci).maybeSingle()
   if (existente) return error('Ya existe una cuenta con esa CI. Ingresá con tu PIN; si lo olvidaste, pedile a tu entrenador que lo resetee.', 409)
+  const { data: pendiente } = await admin.from('solicitudes_alta').select('id').eq('ci', ci).eq('estado', 'pendiente').maybeSingle()
+  if (pendiente) return error('Ya hay una solicitud pendiente con esa CI. Esperá a que tu entrenador la revise.', 409)
+  // Si el entrenador ya cargó una ficha con esa CI, se permite: al aceptarla se vincula a esa ficha.
 
   const r = await crearUsuario(admin, { ci, pin, nombre, rol: 'alumno', debeCambiar: false, telefono: texto(p.telefono, 30) })
   if ('error' in r) return error(r.error)
@@ -183,11 +187,16 @@ async function crearAcceso(admin: SupabaseClient, p: Record<string, unknown>) {
   if (!alumno) return error('No se encontró el alumno.', 404)
   if (alumno.profile_id) return error('Este alumno ya tiene acceso. Si olvidó su PIN, reseteálo.')
 
+  const { data: otraFicha } = await admin.from('alumnos').select('nombre').eq('ci', ci).neq('id', alumno.id).maybeSingle()
+  if (otraFicha) return error(`Esa CI ya está cargada en la ficha de ${otraFicha.nombre}.`)
+  const { data: pendiente } = await admin.from('solicitudes_alta').select('id').eq('ci', ci).eq('estado', 'pendiente').maybeSingle()
+  if (pendiente) return error('Esa persona ya se registró sola: aceptá su solicitud desde "Solicitudes" en lugar de crearle otro acceso.')
+
   const pin = generarPin()
   const r = await crearUsuario(admin, { ci, pin, nombre: alumno.nombre, rol: 'alumno' })
   if ('error' in r) return error(r.error)
 
-  const { error: errVinculo } = await admin.from('alumnos').update({ profile_id: r.id }).eq('id', alumno.id)
+  const { error: errVinculo } = await admin.from('alumnos').update({ profile_id: r.id, ci }).eq('id', alumno.id)
   if (errVinculo) {
     await admin.auth.admin.deleteUser(r.id)
     return error('No se pudo vincular el acceso con la ficha.')

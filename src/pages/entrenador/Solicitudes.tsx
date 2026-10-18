@@ -37,14 +37,14 @@ const NIVELES: { valor: Nivel; texto: string }[] = [
 export default function Solicitudes() {
   const [pendientes, setPendientes] = useState<Solicitud[] | null>(null)
   const [revisadas, setRevisadas] = useState<Solicitud[]>([])
-  const [sinAcceso, setSinAcceso] = useState<Pick<Alumno, 'id' | 'nombre'>[]>([])
+  const [sinAcceso, setSinAcceso] = useState<Pick<Alumno, 'id' | 'nombre' | 'ci'>[]>([])
   const [config, setConfig] = useState({ monto: 0, dia: 10 })
 
   const cargar = useCallback(async () => {
     const [p, r, a, c] = await Promise.all([
       supabase.from('solicitudes_alta').select('*').eq('estado', 'pendiente').order('created_at'),
       supabase.from('solicitudes_alta').select('*').neq('estado', 'pendiente').order('revisado_at', { ascending: false }).limit(10),
-      supabase.from('alumnos').select('id, nombre').is('profile_id', null).order('nombre'),
+      supabase.from('alumnos').select('id, nombre, ci').is('profile_id', null).order('nombre'),
       supabase.from('config_cuotas').select('*').maybeSingle(),
     ])
     setPendientes((p.data ?? []) as Solicitud[])
@@ -93,7 +93,7 @@ function TarjetaSolicitud({
   onCambio,
 }: {
   s: Solicitud
-  sinAcceso: Pick<Alumno, 'id' | 'nombre'>[]
+  sinAcceso: Pick<Alumno, 'id' | 'nombre' | 'ci'>[]
   config: { monto: number; dia: number }
   onCambio: () => void
 }) {
@@ -111,11 +111,13 @@ function TarjetaSolicitud({
     setDia(String(config.dia))
   }, [config.monto, config.dia])
 
-  // Si hay un alumno cargado a mano con el mismo nombre, sugerir vincularlo.
+  // Ficha cargada a mano con la misma CI: se vincula sí o sí (una CI = un alumno).
+  const mismaCi = sinAcceso.find((a) => a.ci === s.ci)
+  // Si no, sugerir la que tenga el mismo nombre.
   useEffect(() => {
-    const parecido = sinAcceso.find((a) => a.nombre.trim().toLowerCase() === s.nombre.trim().toLowerCase())
+    const parecido = mismaCi ?? sinAcceso.find((a) => !a.ci && a.nombre.trim().toLowerCase() === s.nombre.trim().toLowerCase())
     if (parecido) setVincular(parecido.id)
-  }, [sinAcceso, s.nombre])
+  }, [sinAcceso, s.nombre, mismaCi])
 
   async function aceptar() {
     setError('')
@@ -195,7 +197,11 @@ function TarjetaSolicitud({
           <Campo id={`cuota-${s.id}`} label="Cuota mensual (Gs.)" inputMode="numeric" value={cuota} onChange={(e) => setCuota(miles(leerMonto(e.target.value)))} />
           <Campo id={`dia-${s.id}`} label="Vence el día (1 a 28)" inputMode="numeric" value={dia} onChange={(e) => setDia(e.target.value.replace(/\D/g, ''))} />
         </div>
-        {sinAcceso.length > 0 && (
+        {mismaCi ? (
+          <p className="rounded-xl bg-ok/10 px-3 py-2 text-sm text-ok">
+            Ya tenías cargada la ficha de <strong>{mismaCi.nombre}</strong> con la CI {s.ci}: al aceptar se vincula a esa ficha, sin duplicarla.
+          </p>
+        ) : sinAcceso.some((a) => !a.ci) && (
           <Selector
             id={`vinc-${s.id}`}
             label="¿Ya lo tenías cargado? (opcional)"
@@ -204,7 +210,7 @@ function TarjetaSolicitud({
             ayuda="Si lo cargaste a mano antes, elegilo para no duplicarlo: se le asigna este acceso."
           >
             <option value="">No, es un alumno nuevo</option>
-            {sinAcceso.map((a) => (
+            {sinAcceso.filter((a) => !a.ci).map((a) => (
               <option key={a.id} value={a.id}>
                 {a.nombre}
               </option>
