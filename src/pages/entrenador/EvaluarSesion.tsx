@@ -97,6 +97,8 @@ export default function EvaluarSesion() {
           {r ? (
             <dl className="font-mono text-sm">
               <p className="mb-1 text-xs text-texto-2">{r.origen === 'garmin' ? 'Garmin' : 'Carga manual'}</p>
+              {r.datos_crudos?.titulo && <p className="text-xs text-texto-2">“{r.datos_crudos.titulo}”</p>}
+              {r.datos_crudos?.desnivel_m ? <p className="text-xs text-texto-2">↑ {r.datos_crudos.desnivel_m} m de desnivel</p> : null}
               {r.distancia_km && <p className="text-base font-semibold">{formatoKm(r.distancia_km)} km</p>}
               {r.duracion_seg && <p>{formatoDuracion(r.duracion_seg)}</p>}
               {r.ritmo_prom_seg && (
@@ -113,6 +115,17 @@ export default function EvaluarSesion() {
           )}
         </Tarjeta>
       </div>
+
+      {r?.garmin_url && (
+        <a
+          href={r.garmin_url}
+          target="_blank"
+          rel="noreferrer"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-marino bg-white px-4 font-semibold text-marino hover:bg-marino hover:text-white"
+        >
+          Ver la actividad completa en Garmin Connect ↗
+        </a>
+      )}
 
       {r && r.splits?.length > 0 && (
         <Tarjeta className="overflow-x-auto p-3">

@@ -12,6 +12,9 @@ import { useTipos } from '../../components/Semana'
 import { AreaTexto, Boton, Campo, Cargando, EtiquetaTipo, MensajeError, Opciones, Pestanas, Tarjeta } from '../../components/ui'
 
 type DatosGarmin = {
+  link: string
+  titulo: string | null
+  desnivel_m: number | null
   distancia_km: number
   duracion_seg: number
   ritmo_prom_seg: number
@@ -19,6 +22,12 @@ type DatosGarmin = {
   fc_max: number | null
   splits: Split[]
   datos_crudos: unknown
+}
+
+// Acepta el link solo o el mensaje entero que comparte la app de Garmin.
+const linkGarmin = (texto: string) => {
+  const id = texto.match(/garmin\.com\/[^\s]*?activity\/(\d{6,})/i)?.[1]
+  return id ? `https://connect.garmin.com/modern/activity/${id}` : null
 }
 
 const SENSACIONES = [
@@ -35,7 +44,7 @@ export default function RegistrarSesion() {
   const { tipo } = useTipos()
   const [sesion, setSesion] = useState<SesionPlan | null | undefined>(undefined)
   const [existente, setExistente] = useState<SesionReg | null>(null)
-  const [modo, setModo] = useState<'garmin' | 'manual'>('manual')
+  const [modo, setModo] = useState<'garmin' | 'manual'>('garmin')
 
   // Formulario
   const [distancia, setDistancia] = useState('')
@@ -71,7 +80,8 @@ export default function RegistrarSesion() {
         setFcMax(reg.fc_max ? String(reg.fc_max) : '')
         setSensacion(reg.sensacion)
         setComentario(reg.comentario_alumno ?? '')
-        if (reg.origen === 'garmin' && reg.garmin_url) setLink(reg.garmin_url)
+        if (reg.garmin_url) setLink(reg.garmin_url)
+        else setModo('manual')
         const m = await supabase.from('molestias_ciclo').select('nivel').eq('sesion_registrada_id', reg.id).maybeSingle()
         setMolestia((m.data?.nivel as Molestia) ?? null)
       }
@@ -82,23 +92,19 @@ export default function RegistrarSesion() {
   const seg = leerDuracion(tiempo)
   const ritmo = km && seg ? Math.round(seg / km) : null
 
-  async function leerGarmin() {
+  // Lee el resumen de Garmin y completa el formulario. El pulso no viene
+  // (Garmin no lo comparte en el link público): se carga a mano si se quiere.
+  async function leerGarmin(texto = link) {
     setError('')
     setGarmin(null)
-    if (!/garmin\.com/.test(link)) return setError('Pegá el link de la actividad de Garmin Connect.')
+    if (!linkGarmin(texto)) return setError('Pegá el link (o el mensaje) que comparte Garmin Connect.')
     setLeyendo(true)
-    const r = await llamarFuncion<DatosGarmin>('leer-garmin', { url: link.trim() })
+    const r = await llamarFuncion<DatosGarmin>('leer-garmin', { url: texto.trim() })
     setLeyendo(false)
     if (r.error !== null) return setError(r.error)
     setGarmin(r.datos)
-  }
-
-  function usarGarmin() {
-    if (!garmin) return
-    setDistancia(String(garmin.distancia_km).replace('.', ','))
-    setTiempo(formatoDuracion(garmin.duracion_seg))
-    setFcProm(garmin.fc_prom ? String(garmin.fc_prom) : '')
-    setFcMax(garmin.fc_max ? String(garmin.fc_max) : '')
+    setDistancia(String(r.datos.distancia_km).replace('.', ','))
+    setTiempo(formatoDuracion(r.datos.duracion_seg))
   }
 
   async function guardar() {
@@ -106,19 +112,21 @@ export default function RegistrarSesion() {
     if (!km || km <= 0) return setError('Ingresá la distancia.')
     if (!seg || seg <= 0) return setError('Ingresá el tiempo, por ejemplo 52:30 o 1:05:10.')
     if (!sensacion) return setError('Elegí cómo te sentiste.')
-    const desdeGarmin = modo === 'garmin' && garmin
+    // El link se guarda siempre que haya uno, aunque no se haya podido leer:
+    // el entrenador lo abre para ver la actividad completa.
+    const url = linkGarmin(link)
     const fila = {
       sesion_planificada_id: sesionId,
       alumno_id: alumno.id,
-      origen: desdeGarmin ? 'garmin' : 'manual',
-      garmin_url: desdeGarmin ? link.trim() : null,
+      origen: garmin || (url && existente?.origen === 'garmin') ? 'garmin' : 'manual',
+      garmin_url: url,
       distancia_km: Math.round(km * 100) / 100,
       duracion_seg: seg,
-      ritmo_prom_seg: desdeGarmin ? garmin.ritmo_prom_seg : ritmo,
+      ritmo_prom_seg: ritmo,
       fc_prom: leerNumero(fcProm),
       fc_max: leerNumero(fcMax),
-      splits: desdeGarmin ? garmin.splits : (existente?.origen === 'garmin' ? existente.splits : []),
-      datos_crudos: desdeGarmin ? garmin.datos_crudos : undefined,
+      splits: existente?.splits ?? [],
+      datos_crudos: garmin ? garmin.datos_crudos : undefined,
       sensacion,
       comentario_alumno: comentario.trim() || null,
     }
@@ -203,25 +211,38 @@ export default function RegistrarSesion() {
 
       {modo === 'garmin' && (
         <Tarjeta className="flex flex-col gap-3">
-          <Campo id="garmin-link" label="Link de la actividad" placeholder="https://connect.garmin.com/modern/activity/…" value={link} onChange={(e) => setLink(e.target.value)} />
-          <Boton variante="oscuro" onClick={leerGarmin} disabled={leyendo}>
+          <p className="text-sm text-texto-2">
+            En la app <strong>Garmin Connect</strong>: abrí la actividad → <strong>Compartir</strong> → <strong>Copiar</strong>. Después pegalo acá.
+          </p>
+          <AreaTexto
+            id="garmin-link"
+            label="Link o mensaje de Garmin"
+            rows={2}
+            placeholder="Consulta mi actividad… https://connect.garmin.com/modern/activity/…"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            onPaste={(e) => {
+              // Al pegar, se lee solo.
+              const pegado = e.clipboardData.getData('text')
+              if (linkGarmin(pegado)) setTimeout(() => leerGarmin(pegado), 0)
+            }}
+          />
+          <Boton variante="oscuro" onClick={() => leerGarmin()} disabled={leyendo}>
             {leyendo ? 'Leyendo…' : 'Leer'}
           </Boton>
           {garmin && (
-            <div className="rounded-xl bg-fondo p-3 text-sm">
-              <p className="mb-1 font-semibold">Datos leídos — revisalos:</p>
-              <p className="font-mono">
+            <div className="rounded-xl bg-ok/10 p-3 text-sm text-ok" role="status">
+              <p className="font-semibold">✓ Leído de Garmin{garmin.titulo ? `: ${garmin.titulo}` : ''}</p>
+              <p className="font-mono text-marino">
                 {formatoKm(garmin.distancia_km)} km · {formatoDuracion(garmin.duracion_seg)} · {formatoRitmo(garmin.ritmo_prom_seg)}/km
+                {garmin.desnivel_m ? ` · ↑${garmin.desnivel_m} m` : ''}
               </p>
-              <p className="font-mono">
-                FC {garmin.fc_prom ?? '—'} prom / {garmin.fc_max ?? '—'} máx · {garmin.splits.length} splits
-              </p>
-              <Boton className="mt-2 w-full" onClick={usarGarmin}>
-                Usar estos datos
-              </Boton>
+              <p className="mt-1 text-texto-2">Revisá los datos abajo. El pulso no viene en el link: si querés, cargalo a mano.</p>
             </div>
           )}
-          <p className="text-xs text-texto-2">Si el link no se puede leer, usá la pestaña Carga manual.</p>
+          <p className="text-xs text-texto-2">
+            La actividad tiene que ser pública. Si no se puede leer, completá los datos abajo: el link queda guardado igual para tu entrenador.
+          </p>
         </Tarjeta>
       )}
 

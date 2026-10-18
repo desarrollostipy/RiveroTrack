@@ -67,6 +67,7 @@ export type SesionReg = {
   splits: Split[]
   sensacion: number | null
   comentario_alumno: string | null
+  datos_crudos?: { titulo?: string | null; desnivel_m?: number | null } | null
   created_at: string
 }
 
