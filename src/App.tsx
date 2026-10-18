@@ -9,6 +9,8 @@ import { IconoAlumnos, IconoCuentas, IconoEvolucion, IconoHoy, IconoPlanes, Icon
 import Ingreso from './pages/Ingreso'
 import PrimerUso from './pages/PrimerUso'
 import CambiarPin from './pages/CambiarPin'
+import Registro from './pages/Registro'
+import Solicitudes from './pages/entrenador/Solicitudes'
 import Alumnos from './pages/entrenador/Alumnos'
 import FichaAlumno from './pages/entrenador/FichaAlumno'
 import AlumnoForm from './pages/entrenador/AlumnoForm'
@@ -49,6 +51,7 @@ export default function App() {
     return (
       <Routes>
         <Route path="/primer-uso" element={<PrimerUso />} />
+        <Route path="/registro" element={<Registro />} />
         <Route path="*" element={<Ingreso />} />
       </Routes>
     )
@@ -81,6 +84,7 @@ export default function App() {
         <Route path="/alumnos/:id/editar" element={<AlumnoForm />} />
         <Route path="/alumnos/:id/plan" element={<EditorPlan />} />
         <Route path="/evaluar/:sesionId" element={<EvaluarSesion />} />
+        <Route path="/solicitudes" element={<Solicitudes />} />
         <Route path="*" element={<Navigate to="/alumnos" replace />} />
       </Routes>
     )

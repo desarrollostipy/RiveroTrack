@@ -22,18 +22,21 @@ export default function Alumnos() {
   const [cuotas, setCuotas] = useState<Cuota[]>([])
   const [error, setError] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('todos')
+  const [solicitudes, setSolicitudes] = useState(0)
 
   const cargar = useCallback(async () => {
     try {
-      const [a, s, c] = await Promise.all([
+      const [a, s, c, sol] = await Promise.all([
         supabase.from('alumnos').select('*').eq('activo', true).order('nombre'),
         cargarSemanas({ desde: sumarDias(lunes, -14), hasta: lunes }),
         supabase.from('cuotas').select('*').eq('estado', 'pendiente').lt('vencimiento', hoy),
+        supabase.from('solicitudes_alta').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
       ])
       if (a.error) throw a.error
       setAlumnos(a.data as Alumno[])
       setSemanas(s)
       setCuotas((c.data ?? []) as Cuota[])
+      setSolicitudes(sol.count ?? 0)
     } catch {
       setError('No se pudo cargar la lista de alumnos.')
     }
@@ -96,6 +99,17 @@ export default function Alumnos() {
       }
     >
       <MensajeError>{error}</MensajeError>
+      {solicitudes > 0 && (
+        <Link
+          to="/solicitudes"
+          className="flex min-h-14 items-center justify-between gap-2 rounded-2xl bg-azul px-4 py-3 font-semibold text-white hover:bg-azul-hover"
+        >
+          <span>
+            📝 {solicitudes} {solicitudes === 1 ? 'alumno nuevo se registró' : 'alumnos nuevos se registraron'}
+          </span>
+          <span className="rounded-xl bg-white/20 px-3 py-1 text-sm">Revisar</span>
+        </Link>
+      )}
       {alumnos === null && !error && <Cargando />}
 
       {alumnos && (

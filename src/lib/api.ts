@@ -27,6 +27,21 @@ type AccionAcceso =
   | { accion: 'crear-entrenador'; codigo: string; ci: string; nombre: string; pin: string }
   | { accion: 'crear-acceso'; alumno_id: string; ci: string }
   | { accion: 'resetear-pin'; alumno_id: string }
+  | { accion: 'rechazar-solicitud'; solicitud_id: string }
+  | {
+      accion: 'solicitar-alta'
+      ci: string
+      pin: string
+      nombre: string
+      sexo: 'F' | 'M'
+      fecha_nacimiento: string | null
+      telefono: string | null
+      objetivo: string | null
+      nivel: string | null
+      altura_cm: number | null
+      peso_kg: number | null
+      comentario: string | null
+    }
 
 export const gestionarAcceso = <T = { ok: true; pin?: string }>(pedido: AccionAcceso) =>
   llamarFuncion<T>('gestionar-acceso', pedido)

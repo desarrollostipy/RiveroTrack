@@ -36,13 +36,74 @@ export default async (req: Request) => {
   }
 
   if (pedido.accion === 'crear-entrenador') return crearEntrenador(admin, pedido)
+  if (pedido.accion === 'solicitar-alta') return solicitarAlta(admin, pedido)
 
   // El resto de las acciones las puede hacer solo el entrenador.
   if (!(await esEntrenador(admin, req))) return error('Solo el entrenador puede hacer esto.', 403)
 
   if (pedido.accion === 'crear-acceso') return crearAcceso(admin, pedido)
   if (pedido.accion === 'resetear-pin') return resetearPin(admin, pedido)
+  if (pedido.accion === 'rechazar-solicitud') return rechazarSolicitud(admin, pedido)
   return error('Acción desconocida.')
+}
+
+// ---------- Registro de alumnos nuevos ----------
+
+const texto = (v: unknown, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '') || null
+const numero = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number(v))
+
+// El alumno se registra solo. Queda pendiente hasta que el entrenador lo acepta.
+async function solicitarAlta(admin: SupabaseClient, p: Record<string, unknown>) {
+  const ci = limpiarCi(String(p.ci ?? ''))
+  const nombre = texto(p.nombre, 80)
+  const pin = String(p.pin ?? '')
+  const sexo = p.sexo === 'F' || p.sexo === 'M' ? p.sexo : null
+  if (!esCiValida(ci)) return error('La CI tiene que ser solo números.')
+  if (!nombre || nombre.length < 3) return error('Ingresá tu nombre y apellido.')
+  if (!sexo) return error('Elegí tu sexo.')
+  if (!esPinValido(pin)) return error('El PIN tiene que tener 6 números.')
+
+  const nivel = ['principiante', 'intermedio', 'avanzado'].includes(String(p.nivel)) ? String(p.nivel) : null
+  const altura = numero(p.altura_cm)
+  const peso = numero(p.peso_kg)
+  const nacimiento = /^\d{4}-\d{2}-\d{2}$/.test(String(p.fecha_nacimiento ?? '')) ? String(p.fecha_nacimiento) : null
+  if (altura !== null && !(altura >= 100 && altura <= 230)) return error('La altura va de 100 a 230 cm.')
+  if (peso !== null && !(peso >= 25 && peso <= 250)) return error('Revisá el peso.')
+
+  const { data: existente } = await admin.from('profiles').select('id').eq('ci', ci).maybeSingle()
+  if (existente) return error('Ya existe una cuenta con esa CI. Ingresá con tu PIN; si lo olvidaste, pedile a tu entrenador que lo resetee.', 409)
+
+  const r = await crearUsuario(admin, { ci, pin, nombre, rol: 'alumno', debeCambiar: false, telefono: texto(p.telefono, 30) })
+  if ('error' in r) return error(r.error)
+
+  const { error: errSolicitud } = await admin.from('solicitudes_alta').insert({
+    profile_id: r.id,
+    ci,
+    nombre,
+    sexo,
+    fecha_nacimiento: nacimiento,
+    telefono: texto(p.telefono, 30),
+    objetivo: texto(p.objetivo),
+    nivel_declarado: nivel,
+    altura_cm: altura,
+    peso_kg: peso === null ? null : Math.round(peso * 10) / 10,
+    comentario: texto(p.comentario, 500),
+  })
+  if (errSolicitud) {
+    await admin.auth.admin.deleteUser(r.id)
+    return error('No se pudo enviar la solicitud. Intentá de nuevo.')
+  }
+  return respuesta({ ok: true })
+}
+
+// Rechazar: borra el acceso creado al registrarse (la CI queda libre).
+async function rechazarSolicitud(admin: SupabaseClient, p: Record<string, unknown>) {
+  const { data: s } = await admin.from('solicitudes_alta').select('id, profile_id, estado').eq('id', String(p.solicitud_id ?? '')).maybeSingle()
+  if (!s) return error('No se encontró la solicitud.', 404)
+  if (s.estado !== 'pendiente') return error('Esta solicitud ya fue revisada.')
+  await admin.from('solicitudes_alta').update({ estado: 'rechazada', profile_id: null, revisado_at: new Date().toISOString() }).eq('id', s.id)
+  if (s.profile_id) await admin.auth.admin.deleteUser(s.profile_id)
+  return respuesta({ ok: true })
 }
 
 async function esEntrenador(admin: SupabaseClient, req: Request) {
@@ -65,7 +126,7 @@ function codigoCorrecto(recibido: unknown) {
 // Crea el usuario de Auth + su perfil. Si el perfil falla, borra el usuario.
 async function crearUsuario(
   admin: SupabaseClient,
-  datos: { ci: string; pin: string; nombre: string; rol: 'entrenador' | 'alumno' },
+  datos: { ci: string; pin: string; nombre: string; rol: 'entrenador' | 'alumno'; debeCambiar?: boolean; telefono?: string | null },
 ): Promise<{ id: string } | { error: string }> {
   const { data: existente } = await admin.from('profiles').select('id').eq('ci', datos.ci).maybeSingle()
   if (existente) return { error: 'Ya existe un acceso con esa CI.' }
@@ -84,7 +145,8 @@ async function crearUsuario(
     ci: datos.ci,
     rol: datos.rol,
     nombre: datos.nombre,
-    debe_cambiar_clave: datos.rol === 'alumno',
+    debe_cambiar_clave: datos.debeCambiar ?? datos.rol === 'alumno',
+    telefono: datos.telefono ?? null,
   })
   if (errPerfil) {
     await admin.auth.admin.deleteUser(data.user.id)
