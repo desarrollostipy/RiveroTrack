@@ -121,6 +121,17 @@ export type Competencia = {
   distancia_km: number | null
   tiempo_objetivo_seg: number | null
   prioridad: 'A' | 'B' | 'C'
+  estado: 'propuesta' | 'aprobada' | 'rechazada'
+  propuesta_por: 'alumno' | 'entrenador'
+  lugar: string | null
+  comentario_alumno: string | null
+  comentario_entrenador: string | null
+  respondida_at: string | null
+  resultado_tiempo_seg: number | null
+  resultado_posicion: string | null
+  resultado_comentario: string | null
+  resultado_link: string | null
+  created_at: string
 }
 
 export type Ciclo = { id: string; alumno_id: string; fecha_inicio: string; fecha_fin: string | null }

@@ -30,7 +30,7 @@ export default function Hoy() {
     const [s, f, c, q] = await Promise.all([
       cargarSemanas({ alumnoId: alumno.id, desde: lunes, hasta: lunes }),
       supabase.from('evaluaciones').select('*, sesiones_planificadas(fecha, resumen, tipo)').order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      supabase.from('competencias').select('*').eq('alumno_id', alumno.id).gte('fecha', hoy).order('fecha').limit(1).maybeSingle(),
+      supabase.from('competencias').select('*').eq('alumno_id', alumno.id).eq('estado', 'aprobada').gte('fecha', hoy).order('fecha').limit(1).maybeSingle(),
       supabase.from('cuotas').select('*, pagos(*)').eq('alumno_id', alumno.id).order('periodo', { ascending: false }).limit(6),
     ])
     setSemana(s[0] ?? null)
@@ -130,6 +130,16 @@ export default function Hoy() {
           </div>
           {feedback.comentario && <p className="mt-2">“{feedback.comentario}”</p>}
         </Tarjeta>
+      )}
+
+      {!competencia && (
+        <Link to="/carreras" className="flex min-h-14 items-center justify-between gap-2 rounded-2xl border border-dashed border-azul bg-white px-4 py-3 text-azul">
+          <span>
+            <span className="block font-semibold">🏁 ¿Tenés una carrera en mente?</span>
+            <span className="text-sm text-texto-2">Proponésela a tu entrenador</span>
+          </span>
+          <span aria-hidden="true">›</span>
+        </Link>
       )}
 
       {competencia && (

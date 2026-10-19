@@ -5,7 +5,7 @@ import { configFaltante } from './lib/supabase'
 import { MiAlumnoProvider } from './lib/alumno'
 import { ConPestanas, type Pestana } from './components/ConPestanas'
 import { Boton, Cargando, Tarjeta } from './components/ui'
-import { IconoAlumnos, IconoCuentas, IconoEvolucion, IconoHoy, IconoPlanes, IconoSemana } from './components/Iconos'
+import { IconoAlumnos, IconoCarreras, IconoCuentas, IconoEvolucion, IconoHoy, IconoPlanes, IconoSemana } from './components/Iconos'
 import Ingreso from './pages/Ingreso'
 import PrimerUso from './pages/PrimerUso'
 import CambiarPin from './pages/CambiarPin'
@@ -19,6 +19,8 @@ import EvaluarSesion from './pages/entrenador/EvaluarSesion'
 import { Cuentas, Evolucion, Planes } from './pages/entrenador/Secciones'
 import { Hoy, MiSemana, Progreso } from './pages/alumno/Secciones'
 import RegistrarSesion from './pages/alumno/RegistrarSesion'
+import Carreras from './pages/alumno/Carreras'
+import CompetenciasEntrenador from './pages/entrenador/CompetenciasEntrenador'
 
 const PESTANAS_ENTRENADOR: Pestana[] = [
   { a: '/alumnos', texto: 'Alumnos', icono: <IconoAlumnos /> },
@@ -30,6 +32,7 @@ const PESTANAS_ENTRENADOR: Pestana[] = [
 const PESTANAS_ALUMNO: Pestana[] = [
   { a: '/hoy', texto: 'Hoy', icono: <IconoHoy /> },
   { a: '/semana', texto: 'Semana', icono: <IconoSemana /> },
+  { a: '/carreras', texto: 'Carreras', icono: <IconoCarreras /> },
   { a: '/progreso', texto: 'Progreso', icono: <IconoEvolucion /> },
 ]
 
@@ -85,6 +88,7 @@ export default function App() {
         <Route path="/alumnos/:id/plan" element={<EditorPlan />} />
         <Route path="/evaluar/:sesionId" element={<EvaluarSesion />} />
         <Route path="/solicitudes" element={<Solicitudes />} />
+        <Route path="/competencias" element={<CompetenciasEntrenador />} />
         <Route path="*" element={<Navigate to="/alumnos" replace />} />
       </Routes>
     )
@@ -96,6 +100,7 @@ export default function App() {
         <Route element={<ConPestanas pestanas={PESTANAS_ALUMNO} />}>
           <Route path="/hoy" element={<Hoy />} />
           <Route path="/semana" element={<MiSemana />} />
+          <Route path="/carreras" element={<Carreras />} />
           <Route path="/progreso" element={<Progreso />} />
         </Route>
         <Route path="/registrar/:sesionId" element={<RegistrarSesion />} />

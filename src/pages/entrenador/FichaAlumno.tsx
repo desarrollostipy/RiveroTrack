@@ -28,6 +28,7 @@ export default function FichaAlumno() {
   const [cuotas, setCuotas] = useState<Cuota[]>([])
   const [pagos, setPagos] = useState<Pago[]>([])
   const [ciclos, setCiclos] = useState<Ciclo[]>([])
+  const [versionMarcas, setVersionMarcas] = useState(0)
 
   const cargar = useCallback(async () => {
     const [a, m, c, p, ci] = await Promise.all([
@@ -96,8 +97,8 @@ export default function FichaAlumno() {
       )}
 
       <DatosFisicos alumno={alumno} pesos={pesos} onCambio={cargar} />
-      <Competencias alumnoId={alumno.id} />
-      <Marcas alumnoId={alumno.id} />
+      <Competencias alumnoId={alumno.id} onMarca={() => setVersionMarcas((v) => v + 1)} />
+      <Marcas key={versionMarcas} alumnoId={alumno.id} />
 
       <Pestanas
         valor={tab}

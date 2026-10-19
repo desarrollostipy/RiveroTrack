@@ -55,6 +55,13 @@ export const IconoHoy = () => (
   </Icono>
 )
 
+export const IconoCarreras = () => (
+  <Icono>
+    <path d="M5 21V4" />
+    <path d="M5 4h11l-2 4 2 4H5" />
+  </Icono>
+)
+
 export const IconoSemana = () => (
   <Icono>
     <path d="M8 6h13M8 12h13M8 18h13" />

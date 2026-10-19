@@ -187,6 +187,20 @@ export async function cargarAlumnoPrueba(db: SupabaseClient, indice: number, idE
     db.from('competencias').insert([
       { alumno_id: alumnoId, nombre: `${km === 42.2 ? 'Maratón' : km === 21.1 ? 'Media Maratón' : '10K'} de Asunción`, fecha: sumarDias(hoy, Math.round(entre(20, 60))), distancia_km: km, tiempo_objetivo_seg: Math.round((b - 15) * km), prioridad: 'A' },
       { alumno_id: alumnoId, nombre: 'Corrida San Bernardino', fecha: sumarDias(hoy, Math.round(entre(8, 18))), distancia_km: 5, prioridad: 'C' },
+      // Carrera ya corrida, con resultado (historial).
+      {
+        alumno_id: alumnoId, nombre: 'Corrida de la Costanera', fecha: sumarDias(hoy, -Math.round(entre(30, 50))), distancia_km: 10,
+        tiempo_objetivo_seg: Math.round((b - 15) * 10), prioridad: 'B', lugar: 'Asunción',
+        resultado_tiempo_seg: Math.round((b - 15 + entre(-12, 18)) * 10), resultado_posicion: `${Math.round(entre(8, 60))}° en su categoría`,
+        resultado_comentario: elegir(['Salió muy bien, terminé fuerte.', 'Mucho calor, pero cumplí.', 'Me costó el último km.']),
+      },
+      // Una propuesta del alumno esperando respuesta del entrenador.
+      ...(indice === 0
+        ? [{
+            alumno_id: alumnoId, nombre: '10K Nocturna', fecha: sumarDias(hoy, 25), distancia_km: 10, prioridad: 'B', lugar: 'Encarnación',
+            estado: 'propuesta', propuesta_por: 'alumno', comentario_alumno: 'Es con mi grupo de amigas, ¿la puedo correr tranquila?',
+          }]
+        : []),
     ]),
   )
 

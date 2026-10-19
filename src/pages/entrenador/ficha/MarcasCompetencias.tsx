@@ -1,20 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { mensajeError } from '../../../lib/consultas'
-import { diasEntre, hoyPY } from '../../../lib/fechas'
-import { formatoDuracion, formatoFecha, formatoKm, leerDuracion, leerNumero } from '../../../lib/formato'
+import { hoyPY } from '../../../lib/fechas'
+import { formatoDuracion, formatoFecha, leerDuracion, leerNumero } from '../../../lib/formato'
 import type { Competencia, Marca } from '../../../lib/tipos'
-import { Boton, Campo, Hoja, MensajeError, Opciones, Selector, Tarjeta, Titulo } from '../../../components/ui'
+import { Boton, Campo, Hoja, MensajeError, MensajeOk, Opciones, Selector, Tarjeta, Titulo } from '../../../components/ui'
+import { DetalleCompetencia, distanciaMarca, FormResultado, RevisarCompetencia } from '../../../components/Competencias'
 
-export function Competencias({ alumnoId }: { alumnoId: string }) {
+export function Competencias({ alumnoId, onMarca }: { alumnoId: string; onMarca?: () => void }) {
   const hoy = hoyPY()
   const [lista, setLista] = useState<Competencia[]>([])
   const [abierta, setAbierta] = useState(false)
+  const [resultadoDe, setResultadoDe] = useState<string | null>(null)
+  const [aviso, setAviso] = useState('')
 
   const cargar = useCallback(async () => {
-    const { data } = await supabase.from('competencias').select('*').eq('alumno_id', alumnoId).gte('fecha', hoy).order('fecha')
+    const { data } = await supabase.from('competencias').select('*').eq('alumno_id', alumnoId).order('fecha')
     setLista((data ?? []) as Competencia[])
-  }, [alumnoId, hoy])
+  }, [alumnoId])
   useEffect(() => {
     cargar()
   }, [cargar])
@@ -25,52 +28,70 @@ export function Competencias({ alumnoId }: { alumnoId: string }) {
     cargar()
   }
 
-  const [proxima, ...resto] = lista
+  async function guardarMarca(c: Competencia) {
+    const distancia = distanciaMarca(c.distancia_km)
+    if (!distancia || !c.resultado_tiempo_seg) return
+    const { error } = await supabase
+      .from('marcas_personales')
+      .insert({ alumno_id: alumnoId, distancia, tiempo_seg: c.resultado_tiempo_seg, fecha: c.fecha, carrera: c.nombre })
+    setAviso(error ? mensajeError(error) : `Marca de ${distancia} guardada.`)
+    onMarca?.()
+  }
+
+  const proximas = lista.filter((c) => c.fecha >= hoy)
+  const pasadas = lista.filter((c) => c.fecha < hoy && c.estado === 'aprobada').reverse()
+  const pendientes = proximas.filter((c) => c.estado === 'propuesta').length
 
   return (
     <Tarjeta>
-      <Titulo accion={<Boton variante="texto" onClick={() => setAbierta(true)}>+ Competencia</Boton>}>Próxima competencia</Titulo>
-      {!proxima && <p className="text-sm text-texto-2">Sin competencias cargadas.</p>}
-      {proxima && (
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="font-semibold">
-              {proxima.nombre} <span className="text-xs text-texto-2">· Prioridad {proxima.prioridad}</span>
-            </p>
-            <p className="text-sm text-texto-2">
-              {formatoFecha(proxima.fecha)}
-              {proxima.distancia_km ? ` · ${formatoKm(proxima.distancia_km)} km` : ''}
-              {proxima.tiempo_objetivo_seg ? ` · objetivo ${formatoDuracion(proxima.tiempo_objetivo_seg)}` : ''}
-            </p>
-          </div>
-          <p className="shrink-0 text-right">
-            <span className="font-titulo text-2xl font-extrabold text-azul">{diasEntre(hoy, proxima.fecha)}</span>
-            <span className="block text-xs text-texto-2">días</span>
-          </p>
-        </div>
-      )}
-      {lista.length > 0 && (
-        <details className="mt-2 text-sm">
-          <summary className="min-h-11 cursor-pointer content-center text-azul">Ver todas ({lista.length})</summary>
-          <ul className="flex flex-col divide-y divide-borde">
-            {[proxima, ...resto].map((c) => (
-              <li key={c.id} className="flex items-center justify-between py-1">
-                <span>
-                  {formatoFecha(c.fecha)} · {c.nombre} ({c.prioridad})
-                </span>
-                <Boton variante="texto" onClick={() => borrar(c)} aria-label={`Borrar ${c.nombre}`}>
-                  ✕
-                </Boton>
-              </li>
+      <Titulo accion={<Boton variante="texto" onClick={() => setAbierta(true)}>+ Competencia</Boton>}>
+        Competencias{pendientes ? <span className="ml-2 rounded-full bg-parcial px-2 text-sm text-marino">{pendientes} para aprobar</span> : null}
+      </Titulo>
+      <MensajeOk>{aviso}</MensajeOk>
+      {proximas.length === 0 && <p className="text-sm text-texto-2">Sin competencias próximas.</p>}
+      <div className="flex flex-col gap-2">
+        {proximas.map((c) => (
+          <DetalleCompetencia key={c.id} c={c}>
+            {c.estado === 'propuesta' ? (
+              <RevisarCompetencia c={c} onListo={cargar} />
+            ) : (
+              <Boton variante="texto" className="self-start" onClick={() => borrar(c)}>
+                Borrar
+              </Boton>
+            )}
+          </DetalleCompetencia>
+        ))}
+      </div>
+
+      {pasadas.length > 0 && (
+        <details className="mt-3">
+          <summary className="min-h-11 cursor-pointer content-center font-semibold text-azul">Historial de carreras ({pasadas.length})</summary>
+          <div className="flex flex-col gap-2">
+            {pasadas.map((c) => (
+              <DetalleCompetencia key={c.id} c={c}>
+                {resultadoDe === c.id ? (
+                  <FormResultado c={c} onCancelar={() => setResultadoDe(null)} onListo={() => (setResultadoDe(null), cargar())} />
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <Boton variante="texto" onClick={() => setResultadoDe(c.id)}>
+                      {c.resultado_tiempo_seg ? 'Editar resultado' : 'Cargar resultado'}
+                    </Boton>
+                    {c.resultado_tiempo_seg && distanciaMarca(c.distancia_km) && (
+                      <Boton variante="borde" onClick={() => guardarMarca(c)}>
+                        Guardar como marca personal
+                      </Boton>
+                    )}
+                  </div>
+                )}
+              </DetalleCompetencia>
             ))}
-          </ul>
+          </div>
         </details>
       )}
       <NuevaCompetencia alumnoId={alumnoId} abierta={abierta} onCerrar={() => setAbierta(false)} onListo={cargar} />
     </Tarjeta>
   )
 }
-
 function NuevaCompetencia({ alumnoId, abierta, onCerrar, onListo }: { alumnoId: string; abierta: boolean; onCerrar: () => void; onListo: () => void }) {
   const [nombre, setNombre] = useState('')
   const [fecha, setFecha] = useState('')

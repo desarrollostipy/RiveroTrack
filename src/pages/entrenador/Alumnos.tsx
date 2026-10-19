@@ -23,20 +23,23 @@ export default function Alumnos() {
   const [error, setError] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('todos')
   const [solicitudes, setSolicitudes] = useState(0)
+  const [carrerasPendientes, setCarrerasPendientes] = useState(0)
 
   const cargar = useCallback(async () => {
     try {
-      const [a, s, c, sol] = await Promise.all([
+      const [a, s, c, sol, comp] = await Promise.all([
         supabase.from('alumnos').select('*').eq('activo', true).order('nombre'),
         cargarSemanas({ desde: sumarDias(lunes, -14), hasta: lunes }),
         supabase.from('cuotas').select('*').eq('estado', 'pendiente').lt('vencimiento', hoy),
         supabase.from('solicitudes_alta').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+        supabase.from('competencias').select('id', { count: 'exact', head: true }).eq('estado', 'propuesta').gte('fecha', hoy),
       ])
       if (a.error) throw a.error
       setAlumnos(a.data as Alumno[])
       setSemanas(s)
       setCuotas((c.data ?? []) as Cuota[])
       setSolicitudes(sol.count ?? 0)
+      setCarrerasPendientes(comp.count ?? 0)
     } catch {
       setError('No se pudo cargar la lista de alumnos.')
     }
@@ -110,8 +113,18 @@ export default function Alumnos() {
           <span className="rounded-xl bg-white/20 px-3 py-1 text-sm">Revisar</span>
         </Link>
       )}
+      {carrerasPendientes > 0 && (
+        <Link
+          to="/competencias"
+          className="flex min-h-14 items-center justify-between gap-2 rounded-2xl bg-parcial px-4 py-3 font-semibold text-marino hover:brightness-95"
+        >
+          <span>
+            🏁 {carrerasPendientes} {carrerasPendientes === 1 ? 'competencia para aprobar' : 'competencias para aprobar'}
+          </span>
+          <span className="rounded-xl bg-white/50 px-3 py-1 text-sm">Revisar</span>
+        </Link>
+      )}
       {alumnos === null && !error && <Cargando />}
-
       {alumnos && (
         <>
           <div className="grid grid-cols-3 gap-2">
@@ -174,6 +187,7 @@ export default function Alumnos() {
           </ul>
 
           {alumnos.length > 0 && <LeyendaCuadritos />}
+          <Link to="/competencias" className="flex min-h-11 items-center justify-center rounded-xl border border-borde bg-white font-semibold text-azul">🏁 Ver todas las competencias</Link>
           <DatosPrueba hayAlumnos={alumnos.length > 0} onCambio={cargar} />
         </>
       )}
