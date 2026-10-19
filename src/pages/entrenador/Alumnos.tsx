@@ -9,12 +9,20 @@ import type { Alumno, Cuota, SemanaCompleta } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { CuadritosSemana, LeyendaCuadritos } from '../../components/Semana'
 import { DatosPrueba } from './DatosPrueba'
-import { Boton, Cargando, Indicador, MensajeError, Opciones, Tarjeta, Vacio } from '../../components/ui'
+import { Avatar, Cargando, estadoVigente, GloboEstado, Indicador, MensajeError, Opciones, Selector, Tarjeta, Vacio } from '../../components/ui'
+import { useNoLeidos } from '../../lib/chat'
+import { useGrupos } from '../../lib/grupos'
+import { EtiquetaGrupo } from './Grupos'
+import type { Perfil } from '../../lib/sesion'
 
 type Filtro = 'todos' | 'por_evaluar' | 'alertas'
 
 export default function Alumnos() {
-  const { salir } = useSesion()
+  const { perfil } = useSesion()
+  const { porAlumno: noLeidos } = useNoLeidos(perfil?.id)
+  const { grupos, grupo } = useGrupos()
+  const [grupoFiltro, setGrupoFiltro] = useState('')
+  const [perfiles, setPerfiles] = useState<Record<string, Perfil>>({})
   const hoy = hoyPY()
   const lunes = lunesDe(hoy)
   const [alumnos, setAlumnos] = useState<Alumno[] | null>(null)
@@ -27,12 +35,13 @@ export default function Alumnos() {
 
   const cargar = useCallback(async () => {
     try {
-      const [a, s, c, sol, comp] = await Promise.all([
+      const [a, s, c, sol, comp, pr] = await Promise.all([
         supabase.from('alumnos').select('*').eq('activo', true).order('nombre'),
         cargarSemanas({ desde: sumarDias(lunes, -14), hasta: lunes }),
         supabase.from('cuotas').select('*').eq('estado', 'pendiente').lt('vencimiento', hoy),
         supabase.from('solicitudes_alta').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
         supabase.from('competencias').select('id', { count: 'exact', head: true }).eq('estado', 'propuesta').gte('fecha', hoy),
+        supabase.from('profiles').select('*').eq('rol', 'alumno'),
       ])
       if (a.error) throw a.error
       setAlumnos(a.data as Alumno[])
@@ -40,6 +49,7 @@ export default function Alumnos() {
       setCuotas((c.data ?? []) as Cuota[])
       setSolicitudes(sol.count ?? 0)
       setCarrerasPendientes(comp.count ?? 0)
+      setPerfiles(Object.fromEntries(((pr.data ?? []) as Perfil[]).map((p) => [p.id, p])))
     } catch {
       setError('No se pudo cargar la lista de alumnos.')
     }
@@ -80,7 +90,7 @@ export default function Alumnos() {
   const conAlertas = filas.filter((f) => f.alertas.length)
   const conPorEvaluar = filas.filter((f) => f.porEvaluar)
   const alDia = filas.filter((f) => !f.alertas.length && !f.porEvaluar)
-  const visibles = filtro === 'alertas' ? conAlertas : filtro === 'por_evaluar' ? conPorEvaluar : filas
+  const visibles = (filtro === 'alertas' ? conAlertas : filtro === 'por_evaluar' ? conPorEvaluar : filas).filter((f) => !grupoFiltro || f.a.grupo_id === grupoFiltro)
 
   return (
     <Pantalla
@@ -89,15 +99,22 @@ export default function Alumnos() {
       derecha={
         <div className="flex gap-2">
           <Link
+            to="/herramientas"
+            aria-label="Herramientas"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-borde bg-superficie text-xl"
+          >
+            ☰
+          </Link>
+          <Link
             to="/alumnos/nuevo"
             aria-label="Dar de alta un alumno"
             className="flex min-h-11 min-w-11 items-center justify-center rounded-xl bg-azul text-2xl font-bold text-white hover:bg-azul-hover"
           >
             +
           </Link>
-          <Boton variante="borde" onClick={salir}>
-            Salir
-          </Boton>
+          <Link to="/perfil" aria-label="Mi perfil" className="flex min-h-11 items-center">
+            <Avatar url={perfil?.avatar_url} nombre={perfil?.nombre ?? 'Yo'} tam={44} className="ring-2 ring-azul" />
+          </Link>
         </div>
       }
     >
@@ -116,7 +133,7 @@ export default function Alumnos() {
       {carrerasPendientes > 0 && (
         <Link
           to="/competencias"
-          className="flex min-h-14 items-center justify-between gap-2 rounded-2xl bg-parcial px-4 py-3 font-semibold text-marino hover:brightness-95"
+          className="flex min-h-14 items-center justify-between gap-2 rounded-2xl bg-parcial px-4 py-3 font-semibold text-[#0B1B3A] hover:brightness-95"
         >
           <span>
             🏁 {carrerasPendientes} {carrerasPendientes === 1 ? 'competencia para aprobar' : 'competencias para aprobar'}
@@ -143,6 +160,16 @@ export default function Alumnos() {
               { valor: 'alertas', texto: `Alertas (${conAlertas.length})` },
             ]}
           />
+          {grupos.length > 0 && (
+            <Selector id="filtro-grupo" label="Grupo" value={grupoFiltro} onChange={(e) => setGrupoFiltro(e.target.value)}>
+              <option value="">Todos los grupos</option>
+              {grupos.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.nombre}
+                </option>
+              ))}
+            </Selector>
+          )}
 
           {alumnos.length === 0 && (
             <Vacio>
@@ -156,16 +183,27 @@ export default function Alumnos() {
                 <Link to={`/alumnos/${f.a.id}`} className="block rounded-2xl">
                   <Tarjeta className="flex flex-col gap-2 hover:border-azul">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-semibold">{f.a.nombre}</p>
-                        <p className="truncate text-sm text-texto-2">{f.a.objetivo || 'Sin objetivo cargado'}</p>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar url={f.a.profile_id ? perfiles[f.a.profile_id]?.avatar_url : null} nombre={f.a.nombre} tam={44} />
+                        <div className="min-w-0">
+                          <p className="flex flex-wrap items-center gap-1.5 font-semibold">
+                            {f.a.nombre} <EtiquetaGrupo grupo={grupo(f.a.grupo_id)} />
+                          </p>
+                          <p className="truncate text-sm text-texto-2">{f.a.objetivo || 'Sin objetivo cargado'}</p>
+                        </div>
                       </div>
                       <p className="shrink-0 font-mono text-sm font-semibold" aria-label={`${f.hechas} de ${f.plan} sesiones hechas`}>
                         {f.hechas}/{f.plan}
                       </p>
                     </div>
                     <CuadritosSemana sesiones={f.sesiones} lunes={lunes} hoy={hoy} hayPlan={!!f.actual} />
+                    {f.a.profile_id && perfiles[f.a.profile_id] && estadoVigente(perfiles[f.a.profile_id]) && (
+                      <GloboEstado estado={estadoVigente(perfiles[f.a.profile_id])} className="self-start" />
+                    )}
                     <div className="flex flex-wrap gap-1.5">
+                      {(noLeidos[f.a.id] ?? 0) > 0 && (
+                        <span className="rounded-full bg-azul px-2 py-0.5 text-xs font-bold text-white">💬 {noLeidos[f.a.id]} sin leer</span>
+                      )}
                       {f.deuda.vencidas.length > 0 && (
                         <span className="rounded-full bg-mal px-2 py-0.5 text-xs font-bold text-white">Cuota vencida</span>
                       )}
@@ -187,7 +225,7 @@ export default function Alumnos() {
           </ul>
 
           {alumnos.length > 0 && <LeyendaCuadritos />}
-          <Link to="/competencias" className="flex min-h-11 items-center justify-center rounded-xl border border-borde bg-white font-semibold text-azul">🏁 Ver todas las competencias</Link>
+          <Link to="/competencias" className="flex min-h-11 items-center justify-center rounded-xl border border-borde bg-superficie font-semibold text-azul">🏁 Ver todas las competencias</Link>
           <DatosPrueba hayAlumnos={alumnos.length > 0} onCambio={cargar} />
         </>
       )}

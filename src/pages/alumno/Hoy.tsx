@@ -10,13 +10,14 @@ import { formatoFecha, formatoGs } from '../../lib/formato'
 import type { Competencia, Cuota, Evaluacion, Pago, SemanaCompleta } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { CuadritosSemana, ObjetivosSesion, TextoRegistro, useTipos } from '../../components/Semana'
-import { Boton, Cargando, EtiquetaTipo, Logo, Semaforo, Tarjeta, Titulo } from '../../components/ui'
+import { Avatar, Cargando, estadoVigente, EtiquetaTipo, GloboEstado, Semaforo, Tarjeta, Titulo } from '../../components/ui'
 import { MiCiclo } from './MiCiclo'
+import { AnunciosAlumno, InvitarNotificaciones } from '../../components/AnunciosAlumno'
 
 type Feedback = Evaluacion & { sesiones_planificadas: { fecha: string; resumen: string | null; tipo: string } | null }
 
 export default function Hoy() {
-  const { salir } = useSesion()
+  const { perfil } = useSesion()
   const { alumno } = useMiAlumno()
   const { tipo } = useTipos()
   const hoy = hoyPY()
@@ -59,8 +60,24 @@ export default function Hoy() {
     <Pantalla
       titulo={`Hola, ${alumno.nombre.split(' ')[0]}`}
       subtitulo={fecha.charAt(0).toUpperCase() + fecha.slice(1)}
-      derecha={<Logo className="h-12 w-16 text-[0.6rem]" />}
+      derecha={
+        <div className="flex items-start gap-2">
+          {/* Mi perfil: foto con el estado arriba (como las notas de Instagram) */}
+          <Link to="/perfil" aria-label="Mi perfil" className="relative flex flex-col items-center pt-7">
+            {perfil && estadoVigente(perfil) ? (
+              <GloboEstado estado={estadoVigente(perfil)} className="absolute right-0 top-0 max-w-[8.5rem] whitespace-nowrap" />
+            ) : (
+              <span className="absolute right-0 top-1 whitespace-nowrap rounded-full border border-dashed border-borde bg-superficie px-2 text-[0.65rem] text-texto-2">
+                + estado
+              </span>
+            )}
+            <Avatar url={perfil?.avatar_url} nombre={alumno.nombre} tam={48} className="ring-2 ring-azul" />
+          </Link>
+        </div>
+      }
     >
+      <InvitarNotificaciones />
+      <AnunciosAlumno />
       <AvisoCuota cuotas={cuotas} cuotaMensual={alumno.cuota_mensual} dia={alumno.dia_vencimiento} />
 
       {semana === undefined ? (
@@ -126,7 +143,7 @@ export default function Hoy() {
       )}
 
       {!competencia && (
-        <Link to="/carreras" className="flex min-h-14 items-center justify-between gap-2 rounded-2xl border border-dashed border-azul bg-white px-4 py-3 text-azul">
+        <Link to="/carreras" className="flex min-h-14 items-center justify-between gap-2 rounded-2xl border border-dashed border-azul bg-superficie px-4 py-3 text-azul">
           <span>
             <span className="block font-semibold">🏁 ¿Tenés una carrera en mente?</span>
             <span className="text-sm text-texto-2">Proponésela a tu entrenador</span>
@@ -151,9 +168,6 @@ export default function Hoy() {
 
       {alumno.sexo === 'F' && <MiCiclo />}
 
-      <Boton variante="borde" onClick={salir} className="mt-2 self-start">
-        Salir
-      </Boton>
     </Pantalla>
   )
 }
@@ -178,7 +192,7 @@ function AvisoCuota({ cuotas, cuotaMensual, dia }: { cuotas: (Cuota & { pagos: P
         </p>
       </button>
       {abierto && (
-        <div className="rounded-b-2xl bg-white px-4 py-3 text-sm text-marino">
+        <div className="rounded-b-2xl bg-superficie px-4 py-3 text-sm text-tinta">
           <p>
             Cuota mensual: <strong className="font-mono">{formatoGs(cuotaMensual)}</strong> · vence el día {dia}
           </p>

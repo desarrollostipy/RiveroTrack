@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { mensajeError } from '../lib/consultas'
+import { notificar } from '../lib/push'
 import { diasEntre, hoyPY } from '../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo, leerDuracion, leerNumero } from '../lib/formato'
 import type { Competencia } from '../lib/tipos'
@@ -9,7 +10,7 @@ import { AreaTexto, Boton, Campo, MensajeError } from './ui'
 // Piezas compartidas entre el entrenador y el alumno para las competencias.
 
 const ESTADO = {
-  propuesta: { texto: 'Esperando aprobación', clase: 'bg-parcial text-marino' },
+  propuesta: { texto: 'Esperando aprobación', clase: 'bg-parcial text-[#0B1B3A]' },
   aprobada: { texto: 'Aprobada', clase: 'bg-ok text-white' },
   rechazada: { texto: 'No aprobada', clase: 'bg-mal text-white' },
 } as const
@@ -34,7 +35,7 @@ export function DetalleCompetencia({ c, nombreAlumno, children }: { c: Competenc
   const hoy = hoyPY()
   const faltan = diasEntre(hoy, c.fecha)
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-borde bg-white p-4">
+    <div className="flex flex-col gap-2 rounded-2xl border border-borde bg-superficie p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           {nombreAlumno && <p className="text-sm font-semibold text-azul">{nombreAlumno}</p>}
@@ -73,7 +74,7 @@ export function DetalleCompetencia({ c, nombreAlumno, children }: { c: Competenc
                 : `${formatoDuracion(c.resultado_tiempo_seg - c.tiempo_objetivo_seg)} sobre el objetivo`}
             </p>
           )}
-          {c.resultado_comentario && <p className="text-marino">“{c.resultado_comentario}”</p>}
+          {c.resultado_comentario && <p className="text-tinta">“{c.resultado_comentario}”</p>}
           {c.resultado_link && (
             <a href={c.resultado_link} target="_blank" rel="noreferrer" className="font-semibold text-azul underline">
               Ver actividad / resultados ↗
@@ -145,6 +146,7 @@ export function RevisarCompetencia({ c, onListo }: { c: Competencia; onListo: ()
       .eq('id', c.id)
     setTrabajando(false)
     if (error) return setError(mensajeError(error))
+    notificar({ tipo: 'competencia', competencia_id: c.id })
     onListo()
   }
 
@@ -180,7 +182,7 @@ export function OpcionesDistancia({ valor, onChange }: { valor: string; onChange
           key={d}
           type="button"
           onClick={() => onChange(d)}
-          className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${valor === d ? 'border-transparent bg-azul text-white' : 'border-borde bg-white'}`}
+          className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${valor === d ? 'border-transparent bg-azul text-white' : 'border-borde bg-superficie'}`}
         >
           {d.replace(',1', '').replace(',2', '')}K
         </button>

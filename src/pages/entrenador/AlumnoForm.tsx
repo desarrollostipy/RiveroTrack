@@ -6,9 +6,10 @@ import { leerMonto, leerNumero, miles } from '../../lib/formato'
 import { gestionarAcceso } from '../../lib/api'
 import { esCiValida, limpiarCi } from '../../lib/acceso'
 import type { EstadoAcceso } from './ficha/Acceso'
+import { useGrupos } from '../../lib/grupos'
 import type { Alumno, Nivel } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
-import { AreaTexto, Boton, Campo, Cargando, MensajeError, Opciones } from '../../components/ui'
+import { AreaTexto, Boton, Campo, Cargando, MensajeError, Opciones, Selector } from '../../components/ui'
 
 // Alta (/alumnos/nuevo) y edición (/alumnos/:id/editar) de la ficha.
 export default function AlumnoForm() {
@@ -32,6 +33,9 @@ export default function AlumnoForm() {
   const [notas, setNotas] = useState('')
   const [tieneAcceso, setTieneAcceso] = useState(false)
   const [ci, setCi] = useState('')
+  const [grupoId, setGrupoId] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const { grupos } = useGrupos()
   const [darAcceso, setDarAcceso] = useState(true)
 
   useEffect(() => {
@@ -50,6 +54,8 @@ export default function AlumnoForm() {
         setActivo(a.activo)
         setTieneAcceso(!!a.profile_id)
         setCi(a.ci ?? '')
+        setGrupoId(a.grupo_id ?? '')
+        setTelefono(a.telefono ?? '')
         setDarAcceso(false)
         setNotas(n.data?.notas ?? '')
         setListo(true)
@@ -92,6 +98,8 @@ export default function AlumnoForm() {
       cuota_mensual: leerMonto(cuota),
       dia_vencimiento: diaN,
       activo,
+      grupo_id: grupoId || null,
+      telefono: telefono.trim() || null,
       // La CI no se cambia si ya tiene acceso (es su usuario para ingresar).
       ...(tieneAcceso ? {} : { ci: limpiarCi(ci) || null }),
       ...(sexo === 'M' ? { comparte_ciclo: false } : {}),
@@ -149,6 +157,17 @@ export default function AlumnoForm() {
             { valor: 'avanzado', texto: 'Avanzado' },
           ]}
         />
+        <Campo id="telefono" label="Celular (para WhatsApp)" type="tel" inputMode="tel" placeholder="0981 123 456" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+        {grupos.length > 0 && (
+          <Selector id="grupo" label="Grupo" value={grupoId} onChange={(e) => setGrupoId(e.target.value)}>
+            <option value="">Sin grupo</option>
+            {grupos.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.nombre}
+              </option>
+            ))}
+          </Selector>
+        )}
         <Campo id="objetivo" label="Objetivo" placeholder="Ej: Media maratón sub 1:45" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} />
         <Campo id="nacimiento" label="Fecha de nacimiento" type="date" value={nacimiento} onChange={(e) => setNacimiento(e.target.value)} />
         <div className="grid grid-cols-2 gap-3">

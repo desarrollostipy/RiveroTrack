@@ -9,6 +9,11 @@ export type Perfil = {
   rol: 'entrenador' | 'alumno'
   nombre: string
   debe_cambiar_clave: boolean
+  avatar_url: string | null
+  estado_emoji: string | null
+  estado_texto: string | null
+  estado_cancion: string | null
+  estado_at: string | null
 }
 
 type ContextoSesion = {
@@ -37,7 +42,7 @@ export function SesionProvider({ children }: { children: ReactNode }) {
   const cargarPerfil = useCallback(async (id: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, ci, rol, nombre, debe_cambiar_clave')
+      .select('*')
       .eq('id', id)
       .maybeSingle()
     setPerfilDe({ userId: id, perfil: data as Perfil | null })

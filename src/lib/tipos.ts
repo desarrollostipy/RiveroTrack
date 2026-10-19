@@ -20,6 +20,8 @@ export type Alumno = {
   cuota_mensual: number
   dia_vencimiento: number
   activo: boolean
+  grupo_id?: string | null
+  telefono?: string | null
   created_at: string
 }
 
@@ -139,3 +141,31 @@ export type Ciclo = { id: string; alumno_id: string; fecha_inicio: string; fecha
 // Sesión planificada con lo que hizo el alumno y la evaluación.
 export type SesionCompleta = SesionPlan & { registro: SesionReg | null; evaluacion: Evaluacion | null }
 export type SemanaCompleta = Plan & { sesiones: SesionCompleta[] }
+
+export type Grupo = { id: string; nombre: string; color: string }
+
+export type Plantilla = {
+  id: string
+  nombre: string
+  tipo: string
+  resumen: string | null
+  distancia_km: number | null
+  duracion_min: number | null
+  ritmo_min_seg: number | null
+  ritmo_max_seg: number | null
+  fc_obj_min: number | null
+  fc_obj_max: number | null
+  estructura: string | null
+  notas: string | null
+}
+
+export type Anuncio = { id: string; texto: string; grupo_id: string | null; fijado: boolean; created_at: string }
+
+export type EntrenamientoGrupal = {
+  id: string
+  fecha: string
+  hora: string | null
+  lugar: string | null
+  descripcion: string | null
+  grupo_id: string | null
+}

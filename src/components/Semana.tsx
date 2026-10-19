@@ -18,14 +18,14 @@ export function useTipos() {
 
 const ESTILO_CUADRO: Record<EstadoDia, string> = {
   cumplio: 'bg-ok text-white border-ok',
-  parcial: 'bg-parcial text-marino border-parcial',
+  parcial: 'bg-parcial text-[#0B1B3A] border-parcial',
   no_cumplio: 'bg-mal text-white border-mal',
-  por_evaluar: 'bg-white text-azul border-azul border-2',
+  por_evaluar: 'bg-superficie text-azul border-azul border-2',
   sin_registro: 'bg-mal/15 text-mal border-mal/30',
-  hoy: 'bg-white text-marino border-marino border-2',
+  hoy: 'bg-superficie text-tinta border-marino border-2',
   futuro: 'bg-borde/70 text-texto-2 border-borde',
-  descanso: 'bg-white text-texto-2/60 border-dashed border-borde',
-  sin_plan: 'bg-white text-texto-2/50 border-dashed border-borde',
+  descanso: 'bg-superficie text-texto-2/60 border-dashed border-borde',
+  sin_plan: 'bg-superficie text-texto-2/50 border-dashed border-borde',
 }
 
 /** Fila de 7 cuadritos, uno por día, con su estado. */
@@ -91,7 +91,7 @@ export function ObjetivosSesion({ s, grande = false, sinNotas = false }: { s: Se
           ))}
         </ul>
       )}
-      {s.estructura && <p className={`${grande ? 'text-base' : 'text-sm'} text-marino`}>{s.estructura}</p>}
+      {s.estructura && <p className={`${grande ? 'text-base' : 'text-sm'} text-tinta`}>{s.estructura}</p>}
       {s.notas && !sinNotas && <p className="rounded-xl bg-azul/5 px-3 py-2 text-sm">📝 {s.notas}</p>}
     </div>
   )
@@ -130,7 +130,7 @@ export function ListaDias({
         const delDia = sesiones.filter((s) => s.fecha === fecha)
         const esHoy = fecha === hoy
         return (
-          <li key={fecha} className={`rounded-2xl border bg-white p-3 ${esHoy ? 'border-azul ring-2 ring-azul/20' : 'border-borde'}`}>
+          <li key={fecha} className={`rounded-2xl border bg-superficie p-3 ${esHoy ? 'border-azul ring-2 ring-azul/20' : 'border-borde'}`}>
             <p className="mb-1 text-sm font-semibold">
               {DIAS[i]} <span className="font-normal text-texto-2">{formatoFecha(fecha)}</span>
               {esHoy && <span className="ml-2 rounded-full bg-azul px-2 py-0.5 text-xs text-white">Hoy</span>}

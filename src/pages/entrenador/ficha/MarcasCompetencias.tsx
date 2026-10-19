@@ -45,7 +45,7 @@ export function Competencias({ alumnoId, onMarca }: { alumnoId: string; onMarca?
   return (
     <Tarjeta>
       <Titulo accion={<Boton variante="texto" onClick={() => setAbierta(true)}>+ Competencia</Boton>}>
-        Competencias{pendientes ? <span className="ml-2 whitespace-nowrap rounded-full bg-parcial px-2 align-middle text-sm text-marino">{pendientes} para aprobar</span> : null}
+        Competencias{pendientes ? <span className="ml-2 whitespace-nowrap rounded-full bg-parcial px-2 align-middle text-sm text-[#0B1B3A]">{pendientes} para aprobar</span> : null}
       </Titulo>
       <MensajeOk>{aviso}</MensajeOk>
       {proximas.length === 0 && <p className="text-sm text-texto-2">Sin competencias próximas.</p>}

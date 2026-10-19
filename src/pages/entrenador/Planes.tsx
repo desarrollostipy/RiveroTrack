@@ -76,7 +76,7 @@ export default function Planes() {
               <li key={f.a.id}>
                 <Link
                   to={`/alumnos/${f.a.id}/plan?semana=${lunes}`}
-                  className="flex min-h-14 items-center justify-between gap-2 rounded-2xl border border-borde bg-white px-4 py-3 hover:border-azul"
+                  className="flex min-h-14 items-center justify-between gap-2 rounded-2xl border border-borde bg-superficie px-4 py-3 hover:border-azul"
                 >
                   <span className="min-w-0">
                     <span className="block font-semibold">{f.a.nombre}</span>
@@ -86,7 +86,7 @@ export default function Planes() {
                   </span>
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      f.estado === 'publicado' ? 'bg-ok text-white' : f.estado === 'borrador' ? 'bg-parcial text-marino' : 'bg-mal/15 text-mal'
+                      f.estado === 'publicado' ? 'bg-ok text-white' : f.estado === 'borrador' ? 'bg-parcial text-[#0B1B3A]' : 'bg-mal/15 text-mal'
                     }`}
                   >
                     {f.estado === 'publicado' ? 'Publicado' : f.estado === 'borrador' ? 'Borrador' : 'Sin plan'}

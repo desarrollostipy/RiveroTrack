@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useMiAlumno } from '../../lib/alumno'
 import { mensajeError } from '../../lib/consultas'
+import { notificar } from '../../lib/push'
+import { Link } from 'react-router'
 import { hoyPY } from '../../lib/fechas'
 import { leerDuracion, leerNumero } from '../../lib/formato'
 import type { Competencia } from '../../lib/tipos'
@@ -41,7 +43,14 @@ export default function Carreras() {
     <Pantalla
       titulo="Carreras"
       subtitulo="Tus competencias y resultados"
-      derecha={<Boton onClick={() => setProponiendo(true)}>+ Proponer</Boton>}
+      derecha={
+        <div className="flex gap-2">
+          <Link to="/calculadora" aria-label="Calculadora de ritmos" className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-borde bg-superficie text-xl">
+            📊
+          </Link>
+          <Boton onClick={() => setProponiendo(true)}>+ Proponer</Boton>
+        </div>
+      }
     >
       <MensajeOk>{aviso}</MensajeOk>
       {lista === null && <Cargando />}
@@ -98,7 +107,7 @@ function Proponer({ abierta, onCerrar, onListo }: { abierta: boolean; onCerrar: 
     setError('')
     if (!nombre.trim() || !fecha) return setError('Completá el nombre y la fecha.')
     if (fecha < hoyPY()) return setError('La fecha ya pasó.')
-    const { error } = await supabase.rpc('proponer_competencia', {
+    const { data: nuevaId, error } = await supabase.rpc('proponer_competencia', {
       p_nombre: nombre,
       p_fecha: fecha,
       p_distancia_km: leerNumero(km),
@@ -107,6 +116,7 @@ function Proponer({ abierta, onCerrar, onListo }: { abierta: boolean; onCerrar: 
       p_comentario: comentario,
     })
     if (error) return setError(mensajeError(error))
+    if (nuevaId) notificar({ tipo: 'competencia', competencia_id: nuevaId as string })
     setNombre('')
     setFecha('')
     setKm('')

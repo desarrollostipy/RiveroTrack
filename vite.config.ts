@@ -29,6 +29,8 @@ export default defineConfig({
       workbox: {
         // Las funciones de Netlify nunca se sirven desde la caché.
         navigateFallbackDenylist: [/^\/api\//],
+        // Recibir y mostrar notificaciones push.
+        importScripts: ['/push-sw.js'],
       },
     }),
   ],

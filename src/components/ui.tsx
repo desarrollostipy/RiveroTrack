@@ -14,8 +14,8 @@ type Variante = 'primario' | 'oscuro' | 'borde' | 'peligro' | 'texto'
 const ESTILOS: Record<Variante, string> = {
   primario: 'bg-azul text-white hover:bg-azul-hover',
   oscuro: 'bg-marino text-white hover:bg-marino/90',
-  borde: 'border border-borde bg-white text-marino hover:bg-fondo',
-  peligro: 'border border-mal/30 bg-white text-mal hover:bg-mal/5',
+  borde: 'border border-borde bg-superficie text-tinta hover:bg-fondo',
+  peligro: 'border border-mal/30 bg-superficie text-mal hover:bg-mal/5',
   texto: 'text-azul hover:bg-azul/10',
 }
 
@@ -34,7 +34,7 @@ export function Boton({
   )
 }
 
-const ESTILO_CAMPO = 'min-h-11 w-full rounded-xl border border-borde bg-white px-3 text-base'
+const ESTILO_CAMPO = 'min-h-11 w-full rounded-xl border border-borde bg-superficie px-3 text-base'
 
 function Envoltura({ label, id, ayuda, className = '', children }: { label: string; id: string; ayuda?: string; className?: string; children: ReactNode }) {
   return (
@@ -107,7 +107,7 @@ export function Opciones<T extends string | number>({
               aria-pressed={activo}
               onClick={() => onChange(o.valor)}
               className={`min-h-11 rounded-full border px-4 text-sm font-semibold transition-colors ${
-                activo ? 'border-transparent text-white' : 'border-borde bg-white text-marino hover:bg-fondo'
+                activo ? 'border-transparent text-white' : 'border-borde bg-superficie text-tinta hover:bg-fondo'
               }`}
               style={activo ? { background: o.color ?? 'var(--color-azul)' } : undefined}
             >
@@ -121,7 +121,7 @@ export function Opciones<T extends string | number>({
 }
 
 export function Tarjeta({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`rounded-2xl border border-borde bg-white p-4 ${className}`} {...props} />
+  return <div className={`rounded-2xl border border-borde bg-superficie p-4 ${className}`} {...props} />
 }
 
 export function Titulo({ children, accion }: { children: ReactNode; accion?: ReactNode }) {
@@ -162,7 +162,7 @@ export function EtiquetaTipo({ nombre, color }: { nombre: string; color: string 
 
 const SEMAFORO = {
   cumplio: { texto: 'Cumplió', clase: 'bg-ok text-white' },
-  parcial: { texto: 'Parcial', clase: 'bg-parcial text-marino' },
+  parcial: { texto: 'Parcial', clase: 'bg-parcial text-[#0B1B3A]' },
   no_cumplio: { texto: 'No cumplió', clase: 'bg-mal text-white' },
 } as const
 
@@ -172,9 +172,9 @@ export function Semaforo({ resultado }: { resultado: keyof typeof SEMAFORO }) {
 }
 
 export function Indicador({ valor, texto, tono = 'normal' }: { valor: ReactNode; texto: string; tono?: 'normal' | 'ok' | 'mal' | 'azul' }) {
-  const color = { normal: 'text-marino', ok: 'text-ok', mal: 'text-mal', azul: 'text-azul' }[tono]
+  const color = { normal: 'text-tinta', ok: 'text-ok', mal: 'text-mal', azul: 'text-azul' }[tono]
   return (
-    <div className="rounded-2xl border border-borde bg-white p-3">
+    <div className="rounded-2xl border border-borde bg-superficie p-3">
       <p className={`font-titulo text-2xl font-extrabold ${color}`}>{valor}</p>
       <p className="text-xs text-texto-2">{texto}</p>
     </div>
@@ -192,7 +192,7 @@ export function Pestanas<T extends string>({ opciones, valor, onChange }: { opci
           type="button"
           aria-selected={o.valor === valor}
           onClick={() => onChange(o.valor)}
-          className={`min-h-11 flex-1 rounded-lg text-sm font-semibold ${o.valor === valor ? 'bg-white text-azul shadow-sm' : 'text-texto-2'}`}
+          className={`min-h-11 flex-1 rounded-lg text-sm font-semibold ${o.valor === valor ? 'bg-superficie text-azul shadow-sm' : 'text-texto-2'}`}
         >
           {o.texto}
         </button>
@@ -238,7 +238,7 @@ export function Hoja({ titulo, abierta, onCerrar, children }: { titulo: string; 
 /** Selector ‹ semana › */
 export function SelectorPeriodo({ texto, onAnterior, onSiguiente, detalle }: { texto: string; onAnterior: () => void; onSiguiente: () => void; detalle?: ReactNode }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-borde bg-white">
+    <div className="flex items-center justify-between rounded-2xl border border-borde bg-superficie">
       <button type="button" onClick={onAnterior} aria-label="Anterior" className="min-h-11 min-w-11 rounded-l-2xl text-xl font-bold text-azul hover:bg-fondo">
         ‹
       </button>
@@ -258,13 +258,63 @@ export function Logo({ className = '' }: { className?: string }) {
   const [falla, setFalla] = useState(false)
   if (falla) {
     return (
-      <span className={`inline-flex flex-col items-center justify-center font-titulo font-extrabold leading-none text-marino ${className}`}>
+      <span className={`inline-flex flex-col items-center justify-center font-titulo font-extrabold leading-none text-tinta ${className}`}>
         <span>RIVERO</span>
         <span className="text-[0.55em] tracking-wide text-azul">TRACK &amp; FIELD</span>
       </span>
     )
   }
-  return <img src="/logo-rivero.png" alt="Rivero Track & Field" className={`object-contain ${className}`} onError={() => setFalla(true)} />
+  // Dos versiones: la común para modo día y una clara para modo noche (ver index.css).
+  return (
+    <>
+      <img src="/logo-rivero.png" alt="Rivero Track & Field" className={`logo-claro object-contain ${className}`} onError={() => setFalla(true)} />
+      <img src="/logo-rivero-oscuro.png" alt="Rivero Track & Field" className={`logo-oscuro object-contain ${className}`} />
+    </>
+  )
+}
+
+/** Foto de perfil redonda; sin foto, las iniciales. */
+export function Avatar({ url, nombre, tam = 44, className = '' }: { url?: string | null; nombre: string; tam?: number; className?: string }) {
+  const iniciales = nombre
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join('')
+  return url ? (
+    <img src={url} alt="" width={tam} height={tam} className={`shrink-0 rounded-full object-cover ${className}`} style={{ width: tam, height: tam }} />
+  ) : (
+    <span
+      aria-hidden="true"
+      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-azul font-titulo font-extrabold text-white ${className}`}
+      style={{ width: tam, height: tam, fontSize: tam * 0.38 }}
+    >
+      {iniciales}
+    </span>
+  )
+}
+
+/** El estado se muestra durante 24 horas, como las notas de Instagram. */
+export function estadoVigente(p: { estado_at?: string | null; estado_emoji?: string | null; estado_texto?: string | null; estado_cancion?: string | null }) {
+  if (!p.estado_at) return null
+  if (Date.now() - new Date(p.estado_at).getTime() > 24 * 3600 * 1000) return null
+  if (!p.estado_emoji && !p.estado_texto && !p.estado_cancion) return null
+  return { emoji: p.estado_emoji, texto: p.estado_texto, cancion: p.estado_cancion }
+}
+
+/** Globito con el estado, arriba de la foto. */
+export function GloboEstado({ estado, className = '' }: { estado: ReturnType<typeof estadoVigente>; className?: string }) {
+  if (!estado) return null
+  return (
+    <span className={`inline-flex max-w-[11rem] flex-col rounded-2xl border border-borde bg-superficie px-2.5 py-1 text-left text-xs leading-tight text-tinta shadow-sm ${className}`}>
+      {(estado.emoji || estado.texto) && (
+        <span className="truncate">
+          {estado.emoji} {estado.texto}
+        </span>
+      )}
+      {estado.cancion && <span className="truncate text-texto-2">🎵 {estado.cancion}</span>}
+    </span>
+  )
 }
 
 export function Cargando({ pantalla = false }: { pantalla?: boolean }) {

@@ -75,15 +75,15 @@ export function GraficoKm({ semanas, lunes }: { semanas: FilaResumen[]; lunes: s
     <div className="h-56" role="img" aria-label="Km planificados contra hechos por semana">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={datos} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="#DDE3EE" />
-          <XAxis dataKey="semana" tick={{ fontSize: 11, fill: '#56617A' }} tickLine={false} axisLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: '#56617A' }} tickLine={false} axisLine={false} />
+          <CartesianGrid vertical={false} stroke="var(--color-borde)" />
+          <XAxis dataKey="semana" tick={{ fontSize: 11, fill: 'var(--color-texto-2)' }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 11, fill: 'var(--color-texto-2)' }} tickLine={false} axisLine={false} />
           <Tooltip formatter={(v) => `${v} km`} />
           <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Bar dataKey="Planificado" fill="#DDE3EE" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="Hecho" radius={[4, 4, 0, 0]} fill="#1446B8">
+          <Bar dataKey="Planificado" fill="var(--color-borde)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="Hecho" radius={[4, 4, 0, 0]} fill="var(--color-azul)">
             {datos.map((d) => (
-              <Cell key={d.semana} fill="#1446B8" fillOpacity={d.actual ? 0.45 : 1} />
+              <Cell key={d.semana} fill="var(--color-azul)" fillOpacity={d.actual ? 0.45 : 1} />
             ))}
           </Bar>
         </BarChart>
@@ -99,13 +99,13 @@ export function GraficoFondos({ fondos }: { fondos: PuntoFondo[] }) {
     <div className="h-48" role="img" aria-label="Ritmo promedio en fondos">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={datos} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="#DDE3EE" />
-          <XAxis dataKey="fecha" tick={{ fontSize: 11, fill: '#56617A' }} tickLine={false} axisLine={false} />
+          <CartesianGrid vertical={false} stroke="var(--color-borde)" />
+          <XAxis dataKey="fecha" tick={{ fontSize: 11, fill: 'var(--color-texto-2)' }} tickLine={false} axisLine={false} />
           <YAxis
             reversed
             domain={['dataMin - 10', 'dataMax + 10']}
             tickFormatter={(v) => formatoRitmo(v)}
-            tick={{ fontSize: 11, fill: '#56617A' }}
+            tick={{ fontSize: 11, fill: 'var(--color-texto-2)' }}
             tickLine={false}
             axisLine={false}
           />

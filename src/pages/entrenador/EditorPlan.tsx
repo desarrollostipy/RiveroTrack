@@ -5,10 +5,13 @@ import { cargarAlumno, cargarSemanas, mensajeError } from '../../lib/consultas'
 import { kmPlanificados, textoWhatsApp } from '../../lib/calculos'
 import { DIAS, diasDeSemana, hoyPY, lunesDe, rangoSemana, sumarDias } from '../../lib/fechas'
 import { formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo, leerNumero, leerRitmo } from '../../lib/formato'
-import type { Alumno, Plan, SesionPlan } from '../../lib/tipos'
+import type { Alumno, Plan, Plantilla, SesionPlan } from '../../lib/tipos'
+import { notificar } from '../../lib/push'
+import { usePlantillas } from './Plantillas'
+import { CopiarAOtros } from './CopiarAOtros'
 import { Pantalla } from '../../components/Pantalla'
 import { useTipos } from '../../components/Semana'
-import { AreaTexto, Boton, Campo, Cargando, EtiquetaTipo, MensajeError, MensajeOk, Opciones, SelectorPeriodo } from '../../components/ui'
+import { AreaTexto, Boton, Campo, Cargando, EtiquetaTipo, MensajeError, MensajeOk, Opciones, Selector, SelectorPeriodo } from '../../components/ui'
 
 // Sesión en edición: los números como texto, tal como se tipean.
 type Borrador = {
@@ -98,6 +101,8 @@ export default function EditorPlan() {
   const [estadoGuardado, setEstadoGuardado] = useState<'' | 'pendiente' | 'guardando' | 'guardado'>('')
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
+  const [copiando, setCopiando] = useState(false)
+  const { plantillas, recargar: recargarPlantillas } = usePlantillas()
 
   // ---------- Carga ----------
   useEffect(() => {
@@ -270,7 +275,34 @@ export default function EditorPlan() {
       .single()
     if (error) return setError(mensajeError(error))
     setPlan(data as Plan)
+    if (estadoNuevo === 'publicado') notificar({ tipo: 'plan_publicado', alumno_ids: [alumnoId!], semana: lunes })
     setAviso(estadoNuevo === 'publicado' ? 'Plan publicado: el alumno ya lo ve.' : 'El plan volvió a borrador: el alumno no lo ve.')
+  }
+
+  function usarPlantilla(clave: string, p: Plantilla) {
+    cambiar(clave, {
+      tipo: p.tipo,
+      resumen: p.resumen ?? '',
+      distancia: p.distancia_km ? String(p.distancia_km).replace('.', ',') : '',
+      duracion: p.duracion_min ? String(p.duracion_min) : '',
+      ritmoMin: p.ritmo_min_seg ? formatoRitmo(p.ritmo_min_seg) : '',
+      ritmoMax: p.ritmo_max_seg ? formatoRitmo(p.ritmo_max_seg) : '',
+      fcMin: p.fc_obj_min ? String(p.fc_obj_min) : '',
+      fcMax: p.fc_obj_max ? String(p.fc_obj_max) : '',
+      estructura: p.estructura ?? '',
+      notas: p.notas ?? '',
+    })
+    setAviso(`Plantilla "${p.nombre}" aplicada.`)
+  }
+
+  async function guardarPlantilla(b: Borrador) {
+    const nombre = prompt('Nombre de la plantilla', b.resumen || tipo(b.tipo).nombre)?.trim()
+    if (!nombre) return
+    const { id: _id, plan_id: _p, fecha: _f, turno: _t, ...datos } = aFila(b, '')
+    const { error } = await supabase.from('plantillas_sesion').insert({ nombre, ...datos })
+    if (error) return setError(mensajeError(error))
+    setAviso(`Plantilla "${nombre}" guardada. La encontrás en cualquier día con 🧩.`)
+    recargarPlantillas()
   }
 
   async function copiarWhatsApp() {
@@ -312,13 +344,18 @@ export default function EditorPlan() {
         />
 
         <div className="flex items-center justify-between gap-2">
-          <Boton variante="borde" onClick={duplicarAnterior}>
-            Duplicar semana anterior
-          </Boton>
+          <div className="flex flex-wrap gap-2">
+            <Boton variante="borde" onClick={duplicarAnterior}>
+              Duplicar semana anterior
+            </Boton>
+            <Boton variante="borde" onClick={async () => (await guardarAhora(), setCopiando(true))}>
+              👥 Copiar a otros
+            </Boton>
+          </div>
           <p className="text-right text-sm text-texto-2" role="status">
             {estadoGuardado === 'guardando' ? 'Guardando…' : estadoGuardado === 'guardado' ? 'Guardado ✓' : estadoGuardado === 'pendiente' ? 'Cambios sin guardar' : ''}
             <br />
-            <span className="font-mono font-semibold text-marino">
+            <span className="font-mono font-semibold text-tinta">
               {estimado ? '≈' : ''}
               {formatoKm(totalKm)} km
             </span>
@@ -342,7 +379,7 @@ export default function EditorPlan() {
             const estaAbierto = abierto === fecha
             const t1 = delDia[0]
             return (
-              <li key={fecha} className={`rounded-2xl border bg-white ${fecha === hoy ? 'border-azul' : 'border-borde'}`}>
+              <li key={fecha} className={`rounded-2xl border bg-superficie ${fecha === hoy ? 'border-azul' : 'border-borde'}`}>
                 <button
                   type="button"
                   aria-expanded={estaAbierto}
@@ -381,6 +418,24 @@ export default function EditorPlan() {
                       <div key={b.clave} className="flex flex-col gap-3">
                         {delDia.length > 1 && <p className="text-sm font-semibold text-azul">{b.turno === 1 ? 'Turno 1 · mañana' : 'Turno 2 · tarde'}</p>}
                         {b.registrada && <p className="text-sm text-ok">✓ El alumno ya registró esta sesión.</p>}
+                        {plantillas && plantillas.length > 0 && (
+                          <Selector
+                            id={`plantilla-${b.clave}`}
+                            label="🧩 Usar una plantilla"
+                            value=""
+                            onChange={(e) => {
+                              const p = plantillas.find((x) => x.id === e.target.value)
+                              if (p) usarPlantilla(b.clave, p)
+                            }}
+                          >
+                            <option value="">Elegir…</option>
+                            {plantillas.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nombre}
+                              </option>
+                            ))}
+                          </Selector>
+                        )}
                         <Opciones label="Tipo de sesión" valor={b.tipo} onChange={(c) => cambiar(b.clave, { tipo: c })} opciones={opcionesTipo} />
                         {b.tipo !== 'descanso' && (
                           <>
@@ -470,6 +525,11 @@ export default function EditorPlan() {
                           value={b.notas}
                           onChange={(e) => cambiar(b.clave, { notas: e.target.value })}
                         />
+                        {b.tipo !== 'descanso' && (
+                          <Boton variante="borde" onClick={() => guardarPlantilla(b)}>
+                            🧩 Guardar como plantilla
+                          </Boton>
+                        )}
                         <Boton variante="peligro" onClick={() => quitar(b)}>
                           {delDia.length > 1 ? `Quitar turno ${b.turno}` : 'Quitar sesión'}
                         </Boton>
@@ -488,7 +548,17 @@ export default function EditorPlan() {
         </ul>
       </Pantalla>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-borde bg-white px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3">
+      <CopiarAOtros
+        abierta={copiando}
+        onCerrar={() => setCopiando(false)}
+        alumnoOrigen={alumnoId!}
+        lunes={lunes}
+        sesiones={sesiones.map((b) => aFila(b, ''))}
+        nota={nota}
+        onListo={(m) => setAviso(m)}
+      />
+
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-borde bg-superficie px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3">
         <div className="mx-auto flex max-w-xl gap-2">
           <Boton variante="borde" className="flex-1" onClick={copiarWhatsApp}>
             Copiar para WhatsApp

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { mensajeError } from '../../lib/consultas'
+import { notificar } from '../../lib/push'
 import { compararFc, compararRitmo, estimarCiclo, kmPlanificados } from '../../lib/calculos'
 import { DIAS, diaSemana } from '../../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo } from '../../lib/formato'
@@ -67,6 +68,7 @@ export default function EvaluarSesion() {
       .upsert({ sesion_planificada_id: sesionId, resultado, comentario: comentario.trim() || null, leida_at: null }, { onConflict: 'sesion_planificada_id' })
     setGuardando(false)
     if (error) return setError(mensajeError(error))
+    notificar({ tipo: 'evaluacion', sesion_planificada_id: sesionId! })
     navigate(-1)
   }
 
@@ -126,7 +128,7 @@ export default function EvaluarSesion() {
           href={r.garmin_url}
           target="_blank"
           rel="noreferrer"
-          className="flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-marino bg-white px-4 font-semibold text-marino hover:bg-marino hover:text-white"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-marino bg-superficie px-4 font-semibold text-tinta hover:bg-marino hover:text-white"
         >
           Ver la actividad completa en Garmin Connect ↗
         </a>
@@ -190,7 +192,7 @@ export default function EvaluarSesion() {
           {(
             [
               ['cumplio', 'Cumplió', 'bg-ok text-white'],
-              ['parcial', 'Parcial', 'bg-parcial text-marino'],
+              ['parcial', 'Parcial', 'bg-parcial text-[#0B1B3A]'],
               ['no_cumplio', 'No cumplió', 'bg-mal text-white'],
             ] as const
           ).map(([valor, texto, clase]) => (
@@ -199,7 +201,7 @@ export default function EvaluarSesion() {
               type="button"
               aria-pressed={resultado === valor}
               onClick={() => setResultado(valor)}
-              className={`min-h-14 rounded-xl border-2 font-bold ${resultado === valor ? `${clase} border-marino` : 'border-borde bg-white text-marino'}`}
+              className={`min-h-14 rounded-xl border-2 font-bold ${resultado === valor ? `${clase} border-marino` : 'border-borde bg-superficie text-tinta'}`}
             >
               {texto}
             </button>

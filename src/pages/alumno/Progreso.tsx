@@ -7,6 +7,9 @@ import { hoyPY, lunesDe, sumarDias } from '../../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoPeso, formatoRitmo, leerNumero } from '../../lib/formato'
 import type { Marca, Medicion, Resultado } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
+import { Logros } from '../../components/Logros'
+import { AsistenciaMes } from '../../components/AsistenciaMes'
+import { Link } from 'react-router'
 import { cargarEvolucion, GraficoKm, indicadores } from '../../components/EvolucionAlumno'
 import { Boton, Campo, Cargando, Indicador, MensajeError, Tarjeta, Titulo, Vacio } from '../../components/ui'
 
@@ -36,7 +39,16 @@ export default function Progreso() {
   const cuenta = (r: Resultado) => resultados.filter((x) => x === r).length
 
   return (
-    <Pantalla titulo="Progreso">
+    <Pantalla
+      titulo="Progreso"
+      derecha={
+        <Link to="/calculadora" className="flex min-h-11 items-center rounded-xl border border-borde bg-superficie px-3 text-sm font-semibold">
+          📊 Calculadora
+        </Link>
+      }
+    >
+      <Logros alumnoId={alumno.id} />
+      <AsistenciaMes alumnoId={alumno.id} />
       <PesoAltura />
 
       {!evo || !ind ? (
@@ -76,7 +88,7 @@ export default function Progreso() {
             </div>
             <ul className="mt-2 flex flex-wrap gap-x-4 text-sm">
               <li className="text-ok">● Cumplió {cuenta('cumplio')}</li>
-              <li className="text-marino">● Parcial {cuenta('parcial')}</li>
+              <li className="text-tinta">● Parcial {cuenta('parcial')}</li>
               <li className="text-mal">● No cumplió {cuenta('no_cumplio')}</li>
             </ul>
           </>
@@ -156,10 +168,10 @@ function PesoAltura() {
         <div className="mt-2 h-24" role="img" aria-label="Evolución del peso">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={pesos.map((p) => ({ fecha: formatoFecha(p.fecha), kg: Number(p.peso_kg) }))} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
-              <XAxis dataKey="fecha" tick={{ fontSize: 10, fill: '#56617A' }} tickLine={false} axisLine={false} />
-              <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 10, fill: '#56617A' }} tickLine={false} axisLine={false} />
+              <XAxis dataKey="fecha" tick={{ fontSize: 10, fill: 'var(--color-texto-2)' }} tickLine={false} axisLine={false} />
+              <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 10, fill: 'var(--color-texto-2)' }} tickLine={false} axisLine={false} />
               <Tooltip formatter={(v) => `${formatoPeso(Number(v))} kg`} />
-              <Line type="monotone" dataKey="kg" stroke="#1446B8" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="kg" stroke="var(--color-azul)" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

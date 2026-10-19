@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { llamarFuncion } from '../../lib/api'
 import { Boton, MensajeError, MensajeOk } from '../../components/ui'
 
@@ -41,7 +41,7 @@ export function DatosPrueba({ hayAlumnos, onCambio }: { hayAlumnos: boolean; onC
   }
 
   return (
-    <details className="mt-4 rounded-2xl border border-dashed border-borde bg-white p-4 text-sm" open={!hayAlumnos}>
+    <details className="mt-4 rounded-2xl border border-dashed border-borde bg-superficie p-4 text-sm" open={!hayAlumnos}>
       <summary className="min-h-11 cursor-pointer content-center font-semibold text-texto-2">Datos de prueba</summary>
       <div className="mt-2 flex flex-col gap-2">
         <p className="text-texto-2">

@@ -8,6 +8,7 @@ import { formatoFecha, formatoGs, leerMonto, miles } from '../../lib/formato'
 import type { Alumno, Cuota, Pago } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { FormPago } from '../../components/FormPago'
+import { linkWhatsApp, textoRecordatorioCuota } from '../../lib/whatsapp'
 import { Boton, Campo, Cargando, Hoja, Indicador, MensajeError, MensajeOk, Opciones, Vacio } from '../../components/ui'
 
 type Filtro = 'vencidas' | 'pagadas' | 'todos'
@@ -104,7 +105,7 @@ export default function Cuentas() {
                   : 'Sin cuota este mes'
           const monto = deuda.vencidas.length ? deuda.total : (delMes?.monto ?? a.cuota_mensual)
           return (
-            <li key={a.id} className="rounded-2xl border border-borde bg-white p-3">
+            <li key={a.id} className="rounded-2xl border border-borde bg-superficie p-3">
               <div className="flex items-start justify-between gap-2">
                 <Link to={`/alumnos/${a.id}?tab=pagos`} className="min-w-0 hover:underline">
                   <p className="font-semibold">{a.nombre}</p>
@@ -113,9 +114,21 @@ export default function Cuentas() {
                 <p className={`shrink-0 font-mono font-semibold ${deuda.vencidas.length ? 'text-mal' : ''}`}>{formatoGs(monto)}</p>
               </div>
               {pendientes.length > 0 && (
-                <Boton variante={deuda.vencidas.length ? 'primario' : 'borde'} className="mt-2 w-full" onClick={() => setCobrando(a)}>
-                  Registrar pago
-                </Boton>
+                <div className="mt-2 flex gap-2">
+                  {deuda.vencidas.length > 0 && (
+                    <a
+                      href={linkWhatsApp(a.telefono, textoRecordatorioCuota(a.nombre, deuda.vencidas))}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-h-11 flex-1 items-center justify-center rounded-xl border border-ok bg-superficie font-semibold text-ok"
+                    >
+                      📲 Recordar
+                    </a>
+                  )}
+                  <Boton variante={deuda.vencidas.length ? 'primario' : 'borde'} className="flex-1" onClick={() => setCobrando(a)}>
+                    Registrar pago
+                  </Boton>
+                </div>
               )}
             </li>
           )

@@ -64,7 +64,7 @@ export default function Ingreso() {
       {hayEntrenador !== false && (
         <Link
           to="/registro"
-          className="flex min-h-12 items-center justify-center rounded-xl border-2 border-marino px-4 text-center font-semibold text-marino hover:bg-marino hover:text-white"
+          className="flex min-h-12 items-center justify-center rounded-xl border-2 border-marino px-4 text-center font-semibold text-tinta hover:bg-marino hover:text-white"
         >
           Soy alumno nuevo · Registrarme
         </Link>

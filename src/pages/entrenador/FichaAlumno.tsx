@@ -7,6 +7,8 @@ import { diasEntre, edad, fechaLarga, hoyPY } from '../../lib/fechas'
 import { conSigno, formatoFecha, formatoPeso, leerNumero } from '../../lib/formato'
 import type { Alumno, Ciclo, Cuota, Medicion, Pago } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
+import { Logros } from '../../components/Logros'
+import { AsistenciaMes } from '../../components/AsistenciaMes'
 import { Boton, Campo, Cargando, MensajeError, Pestanas, Tarjeta } from '../../components/ui'
 // Los gráficos pesan: se descargan solo al abrir la pestaña Evolución.
 const EvolucionAlumno = lazy(() => import('../../components/EvolucionAlumno').then((m) => ({ default: m.EvolucionAlumno })))
@@ -70,12 +72,17 @@ export default function FichaAlumno() {
         .join(' · ')}
       volver="/alumnos"
       derecha={
-        <Link to={`/alumnos/${alumno.id}/editar`} className="flex min-h-11 items-center rounded-xl border border-borde bg-white px-4 font-semibold">
+        <Link to={`/alumnos/${alumno.id}/editar`} className="flex min-h-11 items-center rounded-xl border border-borde bg-superficie px-4 font-semibold">
           Editar
         </Link>
       }
     >
       {alumno.objetivo && <p className="-mt-1 text-texto-2">🎯 {alumno.objetivo}</p>}
+      {alumno.profile_id && (
+        <Link to={`/chat/${alumno.id}`} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-azul bg-superficie font-semibold text-azul">
+          💬 Chat con {alumno.nombre.split(' ')[0]}
+        </Link>
+      )}
 
       <button
         type="button"
@@ -115,6 +122,10 @@ export default function FichaAlumno() {
       {tab === 'evolucion' && (
         <Suspense fallback={<Cargando />}>
           <EvolucionAlumno alumnoId={alumno.id} />
+          <div className="mt-3 flex flex-col gap-3">
+            <AsistenciaMes alumnoId={alumno.id} />
+            <Logros alumnoId={alumno.id} />
+          </div>
         </Suspense>
       )}
 

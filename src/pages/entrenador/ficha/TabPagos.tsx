@@ -6,6 +6,7 @@ import { diasEntre, haceDias, hoyPY, nombreMes, primerDiaMes, sumarDias, sumarMe
 import { formatoFecha, formatoGs, leerMonto, miles } from '../../../lib/formato'
 import type { Alumno, Cuota, Pago } from '../../../lib/tipos'
 import { FormPago } from '../../../components/FormPago'
+import { linkWhatsApp, textoRecordatorioCuota } from '../../../lib/whatsapp'
 import { Boton, Campo, MensajeError, Tarjeta, Titulo, Vacio } from '../../../components/ui'
 
 export function TabPagos({ alumno, cuotas, pagos, onCambio }: { alumno: Alumno; cuotas: Cuota[]; pagos: Pago[]; onCambio: () => void }) {
@@ -40,7 +41,21 @@ export function TabPagos({ alumno, cuotas, pagos, onCambio }: { alumno: Alumno; 
   return (
     <div className="flex flex-col gap-3">
       {!registrando ? (
-        <Boton onClick={() => setRegistrando(true)}>Registrar pago</Boton>
+        <div className="flex gap-2">
+          {vencidas.length > 0 && (
+            <a
+              href={linkWhatsApp(alumno.telefono, textoRecordatorioCuota(alumno.nombre, vencidas))}
+              target="_blank"
+              rel="noreferrer"
+              className="flex min-h-11 flex-1 items-center justify-center rounded-xl border border-ok bg-superficie font-semibold text-ok"
+            >
+              📲 Recordar por WhatsApp
+            </a>
+          )}
+          <Boton className="flex-1" onClick={() => setRegistrando(true)}>
+            Registrar pago
+          </Boton>
+        </div>
       ) : (
         <Tarjeta>
           <Titulo>Registrar pago</Titulo>
@@ -88,7 +103,7 @@ export function TabPagos({ alumno, cuotas, pagos, onCambio }: { alumno: Alumno; 
           const pago = c.pago_id ? pagoPorId[c.pago_id] : null
           const vencida = estaVencida(c, hoy)
           return (
-            <li key={c.id} className="flex items-center justify-between gap-2 rounded-2xl border border-borde bg-white p-3">
+            <li key={c.id} className="flex items-center justify-between gap-2 rounded-2xl border border-borde bg-superficie p-3">
               <div>
                 <p className="font-semibold">
                   {nombreMes(c.periodo)} {c.periodo.slice(0, 4)}
@@ -115,7 +130,7 @@ export function TabPagos({ alumno, cuotas, pagos, onCambio }: { alumno: Alumno; 
       </ul>
 
       {pagos.length > 0 && (
-        <details className="rounded-2xl border border-borde bg-white p-3 text-sm">
+        <details className="rounded-2xl border border-borde bg-superficie p-3 text-sm">
           <summary className="min-h-11 cursor-pointer content-center font-semibold">Pagos registrados ({pagos.length})</summary>
           <ul className="mt-2 flex flex-col divide-y divide-borde">
             {pagos.map((p) => (

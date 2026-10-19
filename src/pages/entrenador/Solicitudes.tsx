@@ -66,7 +66,7 @@ export default function Solicitudes() {
       ))}
 
       {revisadas.length > 0 && (
-        <details className="rounded-2xl border border-borde bg-white p-3 text-sm">
+        <details className="rounded-2xl border border-borde bg-superficie p-3 text-sm">
           <summary className="min-h-11 cursor-pointer content-center font-semibold">Revisadas recientemente</summary>
           <ul className="flex flex-col divide-y divide-borde">
             {revisadas.map((s) => (

@@ -7,6 +7,8 @@
   --color-azul-hover: #0F3690;
   --color-azul-claro: #7EA6FF;
   --color-fondo: #F4F6FA;
+  --color-superficie: #FFFFFF; /* tarjetas, campos */
+  --color-tinta: #0B1B3A; /* texto principal */
   --color-borde: #DDE3EE;
   --color-texto-2: #56617A;
 
@@ -22,15 +24,37 @@
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
+/* Modo noche: se activa con data-theme="oscuro" en <html> (ver lib/tema.ts). */
+html[data-theme='oscuro'] {
+  color-scheme: dark;
+  --color-marino: #24345A;
+  --color-azul: #3D6FE5;
+  --color-azul-hover: #2F5CCB;
+  --color-fondo: #0A1428;
+  --color-superficie: #13213F;
+  --color-tinta: #E8EDF7;
+  --color-borde: #2A3A5E;
+  --color-texto-2: #A9B4CC;
+  --color-ok: #45B074;
+  --color-mal: #EF6B63;
+  --color-ciclo: #E39BD0;
+  --color-ciclo-fondo: #3A1F35;
+}
+
 @layer base {
   body {
-    @apply bg-fondo font-sans text-marino antialiased;
+    @apply bg-fondo font-sans text-tinta antialiased;
     -webkit-tap-highlight-color: transparent;
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-azul;
   }
 }
+
+/* Logo: versión común en modo día, versión clara en modo noche. */
+.logo-oscuro { display: none; }
+html[data-theme='oscuro'] .logo-claro { display: none; }
+html[data-theme='oscuro'] .logo-oscuro { display: block; }
 
 /* Barra y cartel "Powered by Netlify" que Netlify agrega a la página:
    la app vive entera dentro de #root, así que todo lo demás se oculta. */

@@ -46,7 +46,7 @@ export function TabSemana({ alumnoId }: { alumnoId: string }) {
       />
       {r && (
         <p className="text-sm text-texto-2">
-          <span className="font-mono font-semibold text-marino">
+          <span className="font-mono font-semibold text-tinta">
             {formatoKm(r.kmReal)} / {r.estimado ? '≈' : ''}
             {formatoKm(r.kmPlan)} km
           </span>{' '}

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { useMiAlumno } from '../../lib/alumno'
 import { llamarFuncion } from '../../lib/api'
+import { notificar } from '../../lib/push'
 import { mensajeError } from '../../lib/consultas'
 import { DIAS, diaSemana } from '../../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo, leerDuracion, leerNumero } from '../../lib/formato'
@@ -146,6 +147,7 @@ export default function RegistrarSesion() {
           await supabase.from('molestias_ciclo').delete().eq('sesion_registrada_id', regId)
         }
       }
+      if (!existente) notificar({ tipo: 'sesion', sesion_planificada_id: sesionId! })
       setListo(true)
     } catch (e) {
       setError(mensajeError(e))
@@ -232,7 +234,7 @@ export default function RegistrarSesion() {
           {garmin && (
             <div className="rounded-xl bg-ok/10 p-3 text-sm text-ok" role="status">
               <p className="font-semibold">✓ Leído de Garmin{garmin.titulo ? `: ${garmin.titulo}` : ''}</p>
-              <p className="font-mono text-marino">
+              <p className="font-mono text-tinta">
                 {formatoKm(garmin.distancia_km)} km · {formatoDuracion(garmin.duracion_seg)} · {formatoRitmo(garmin.ritmo_prom_seg)}/km
                 {garmin.desnivel_m ? ` · ↑${garmin.desnivel_m} m` : ''}
               </p>

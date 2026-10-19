@@ -102,7 +102,7 @@ export function MiCiclo() {
                     <input
                       type="date"
                       aria-label="Fecha de inicio"
-                      className="min-h-11 rounded-xl border border-borde bg-white px-2 text-marino"
+                      className="min-h-11 rounded-xl border border-borde bg-superficie px-2 text-tinta"
                       value={fechaEdit}
                       max={hoy}
                       onChange={(e) => setFechaEdit(e.target.value)}

@@ -7,6 +7,7 @@ import { hoyPY, lunesDe, rangoSemana, sumarDias } from '../../lib/fechas'
 import { formatoKm } from '../../lib/formato'
 import type { SemanaCompleta } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
+import { AgregarCalendario } from '../../components/AgregarCalendario'
 import { ListaDias } from '../../components/Semana'
 import { Cargando, Indicador, SelectorPeriodo, Tarjeta, Vacio } from '../../components/ui'
 
@@ -49,6 +50,7 @@ export default function MiSemana() {
             <Indicador valor={`${r.hechas}/${r.plan}`} texto="sesiones hechas" tono="azul" />
           </div>
           {semana.nota_semana && <Tarjeta>📌 {semana.nota_semana}</Tarjeta>}
+          <AgregarCalendario semana={semana} lunes={lunes} />
           <ListaDias
             lunes={lunes}
             sesiones={semana.sesiones}

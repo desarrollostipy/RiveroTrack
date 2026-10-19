@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { supabase } from '../../../lib/supabase'
 import { gestionarAcceso } from '../../../lib/api'
@@ -93,7 +93,7 @@ export function Acceso({ alumno, onCambio }: { alumno: Alumno; onCambio: () => v
         }}
       >
         <p className="text-texto-2">Pasale estos datos a {alumno.nombre.split(' ')[0]}. Al ingresar, va a tener que elegir su propio PIN.</p>
-        <div className="rounded-2xl bg-white p-4 text-center">
+        <div className="rounded-2xl bg-superficie p-4 text-center">
           <p className="text-sm text-texto-2">CI {pin?.ci}</p>
           <p className="font-mono text-4xl font-semibold tracking-[0.3em]">{pin?.pin}</p>
         </div>

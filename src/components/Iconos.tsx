@@ -55,6 +55,13 @@ export const IconoHoy = () => (
   </Icono>
 )
 
+export const IconoChat = () => (
+  <Icono>
+    <path d="M4 5h16v11H9l-5 4z" />
+    <path d="M8 9.5h8M8 12.5h5" />
+  </Icono>
+)
+
 export const IconoCarreras = () => (
   <Icono>
     <path d="M5 21V4" />
