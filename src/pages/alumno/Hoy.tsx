@@ -50,7 +50,8 @@ export default function Hoy() {
 
   // Al verlo, el último feedback queda marcado como leído.
   useEffect(() => {
-    if (feedback && !feedback.leida_at) supabase.rpc('marcar_evaluacion_leida', { p_evaluacion_id: feedback.id })
+    // .then() hace que la consulta se envíe de verdad.
+    if (feedback && !feedback.leida_at) supabase.rpc('marcar_evaluacion_leida', { p_evaluacion_id: feedback.id }).then(() => {})
   }, [feedback])
 
   const fecha = fechaLarga(hoy)

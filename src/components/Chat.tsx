@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Mensaje } from '../lib/chat'
+import { avisarLeidos, type Mensaje } from '../lib/chat'
 import { notificar } from '../lib/push'
 import { hoyPY, sumarDias } from '../lib/fechas'
 import { formatoFecha } from '../lib/formato'
@@ -41,7 +41,18 @@ export function Chat({
   const [error, setError] = useState('')
   const final = useRef<HTMLDivElement>(null)
 
-  const marcarLeidos = useCallback(() => supabase.rpc('marcar_chat_leido', { p_alumno_id: alumnoId }), [alumnoId])
+  // Ojo: la consulta solo se envía si se espera (await); sin eso nunca se marcaba como leído.
+  const marcarLeidos = useCallback(async () => {
+    const { error } = await supabase.rpc('marcar_chat_leido', { p_alumno_id: alumnoId })
+    if (!error) avisarLeidos()
+  }, [alumnoId])
+
+  // Si el chat está abierto y se vuelve a la app, lo que llegó mientras tanto ya se leyó.
+  useEffect(() => {
+    const alVolver = () => document.visibilityState === 'visible' && marcarLeidos()
+    document.addEventListener('visibilitychange', alVolver)
+    return () => document.removeEventListener('visibilitychange', alVolver)
+  }, [marcarLeidos])
 
   useEffect(() => {
     let vigente = true
