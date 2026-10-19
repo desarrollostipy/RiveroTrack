@@ -9,6 +9,7 @@ import { DIAS, diaSemana } from '../../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo, leerDuracion, leerNumero } from '../../lib/formato'
 import type { Molestia, SesionPlan, SesionReg, Split } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
+import { BotonCompartir, imagenDeSesion } from '../../components/Compartir'
 import { ObjetivosSesion, useTipos } from '../../components/Semana'
 import { AreaTexto, Boton, Campo, Cargando, EtiquetaTipo, MensajeError, Opciones, Pestanas, Tarjeta } from '../../components/ui'
 
@@ -175,6 +176,22 @@ export default function RegistrarSesion() {
           {formatoKm(km!)} km · {formatoDuracion(seg!)} · {formatoRitmo(ritmo!)}/km
         </p>
         <p className="text-texto-2">Tu entrenador ya la puede ver y evaluar.</p>
+        <BotonCompartir
+          variante="primario"
+          className="w-full"
+          nombreArchivo="rivero-entrenamiento.png"
+          etiqueta="📤 Compartir mi entrenamiento"
+          generar={(estilo) =>
+            imagenDeSesion({
+              estilo,
+              planKm: sesion.distancia_km,
+              registro: { fecha: sesion.fecha, distancia_km: km, duracion_seg: seg, ritmo_prom_seg: ritmo, fc_prom: leerNumero(fcProm), sensacion, splits: garmin?.splits ?? existente?.splits ?? [], datos_crudos: garmin ? { desnivel_m: garmin.desnivel_m } : existente?.datos_crudos },
+              tipo: tipo(sesion.tipo).nombre,
+              titulo: sesion.resumen || tipo(sesion.tipo).nombre,
+              nombre: alumno.nombre,
+            })
+          }
+        />
         <Link to="/hoy" className="flex min-h-12 w-full items-center justify-center rounded-xl bg-azul font-semibold text-white">
           Volver a Hoy
         </Link>

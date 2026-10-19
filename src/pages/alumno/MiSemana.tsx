@@ -3,16 +3,19 @@ import { Link } from 'react-router'
 import { useMiAlumno } from '../../lib/alumno'
 import { cargarSemanas, semanasEnMemoria } from '../../lib/consultas'
 import { resumenSemana } from '../../lib/calculos'
-import { hoyPY, lunesDe, rangoSemana, sumarDias } from '../../lib/fechas'
+import { DIAS, diaSemana, hoyPY, lunesDe, rangoSemana, sumarDias } from '../../lib/fechas'
 import { formatoKm } from '../../lib/formato'
 import type { SemanaCompleta } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { AgregarCalendario } from '../../components/AgregarCalendario'
-import { ListaDias } from '../../components/Semana'
+import { BotonCompartir, imagenDeSesion } from '../../components/Compartir'
+import { tarjetaLista } from '../../lib/tarjetas'
+import { ListaDias, useTipos } from '../../components/Semana'
 import { Cargando, Indicador, SelectorPeriodo, Tarjeta, Vacio } from '../../components/ui'
 
 export default function MiSemana() {
   const { alumno } = useMiAlumno()
+  const { tipo } = useTipos()
   const hoy = hoyPY()
   const [lunes, setLunes] = useState(lunesDe(hoy))
   const [semana, setSemana] = useState<SemanaCompleta | null | undefined>(undefined)
@@ -50,7 +53,39 @@ export default function MiSemana() {
             <Indicador valor={`${r.hechas}/${r.plan}`} texto="sesiones hechas" tono="azul" />
           </div>
           {semana.nota_semana && <Tarjeta>📌 {semana.nota_semana}</Tarjeta>}
-          <AgregarCalendario semana={semana} lunes={lunes} />
+          <div className="flex flex-wrap gap-2">
+            <AgregarCalendario semana={semana} lunes={lunes} />
+            {r.hechas > 0 && (
+              <BotonCompartir
+                nombreArchivo={`rivero-semana-${lunes}.png`}
+                etiqueta="📤 Compartir mi semana"
+                generar={(estilo) =>
+                  tarjetaLista({
+                    estilo,
+                    nombre: alumno.nombre,
+                    titulo: 'Mi semana',
+                    subtitulo: rangoSemana(lunes),
+                    destacado: `${formatoKm(r.kmReal)} km · ${r.hechas}/${r.plan} sesiones`,
+                    grafico: {
+                      titulo: 'Km por día',
+                      barras: Array.from({ length: 7 }, (_, i) => {
+                        const fecha = sumarDias(lunes, i)
+                        const km = semana.sesiones.filter((s) => s.fecha === fecha).reduce((t, s) => t + (s.registro?.distancia_km ?? 0), 0)
+                        return { etiqueta: DIAS[i].slice(0, 2), valor: km, texto: km ? formatoKm(km) : '' }
+                      }),
+                    },
+                    filas: semana.sesiones
+                      .filter((s) => s.registro)
+                      .map((s) => ({
+                        icono: s.evaluacion?.resultado === 'cumplio' ? '✅' : '🏃',
+                        texto: `${DIAS[diaSemana(s.fecha)]} · ${s.resumen || tipo(s.tipo).nombre}`,
+                        valor: s.registro!.distancia_km ? `${formatoKm(s.registro!.distancia_km)} km` : '✓',
+                      })),
+                  })
+                }
+              />
+            )}
+          </div>
           <ListaDias
             lunes={lunes}
             sesiones={semana.sesiones}
@@ -66,7 +101,23 @@ export default function MiSemana() {
                 </Link>
               ) : null
             }
-            extra={(s) => (s.evaluacion?.comentario ? <p className="rounded-xl bg-fondo px-3 py-2 text-sm">💬 {s.evaluacion.comentario}</p> : null)}
+            extra={(s) => (
+              <>
+                {s.evaluacion?.comentario ? <p className="rounded-xl bg-fondo px-3 py-2 text-sm">💬 {s.evaluacion.comentario}</p> : null}
+                {s.registro ? (
+                  <div>
+                    <BotonCompartir
+                      variante="texto"
+                      nombreArchivo="rivero-entrenamiento.png"
+                      etiqueta="📤 Compartir entrenamiento"
+                      generar={(estilo) =>
+                        imagenDeSesion({ estilo, registro: s.registro!, tipo: tipo(s.tipo).nombre, titulo: s.resumen || tipo(s.tipo).nombre, nombre: alumno.nombre, planKm: s.distancia_km })
+                      }
+                    />
+                  </div>
+                ) : null}
+              </>
+            )}
           />
         </>
       )}

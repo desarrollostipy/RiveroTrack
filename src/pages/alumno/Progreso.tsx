@@ -7,17 +7,20 @@ import { hoyPY, lunesDe, sumarDias } from '../../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoPeso, formatoRitmo, leerNumero } from '../../lib/formato'
 import type { Marca, Medicion, Resultado } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
-import { Logros } from '../../components/Logros'
+import { Logros, useHistorial } from '../../components/Logros'
+import { Comparar, Records, Retos } from '../../components/Records'
 import { AsistenciaMes } from '../../components/AsistenciaMes'
 import { Link } from 'react-router'
 import { cargarEvolucion, GraficoKm, indicadores } from '../../components/EvolucionAlumno'
-import { Boton, Campo, Cargando, Indicador, MensajeError, Tarjeta, Titulo, Vacio } from '../../components/ui'
+import { Boton, Campo, Cargando, Indicador, MensajeError, Pestanas, Tarjeta, Titulo, Vacio } from '../../components/ui'
 
 export default function Progreso() {
   const { alumno } = useMiAlumno()
   const [evo, setEvo] = useState<Awaited<ReturnType<typeof cargarEvolucion>> | null>(null)
   const [resultados, setResultados] = useState<Resultado[]>([])
   const [marcas, setMarcas] = useState<Marca[]>([])
+  const [tab, setTab] = useState<'resumen' | 'records' | 'logros'>('resumen')
+  const h = useHistorial(alumno.id)
 
   useEffect(() => {
     const hoy = hoyPY()
@@ -47,11 +50,29 @@ export default function Progreso() {
         </Link>
       }
     >
-      <Logros alumnoId={alumno.id} />
-      <AsistenciaMes alumnoId={alumno.id} />
-      <PesoAltura />
+      <Pestanas
+        valor={tab}
+        onChange={setTab}
+        opciones={[
+          { valor: 'resumen', texto: 'Resumen' },
+          { valor: 'records', texto: '🏆 Récords' },
+          { valor: 'logros', texto: '🎯 Retos y logros' },
+        ]}
+      />
 
-      {!evo || !ind ? (
+      {tab === 'records' && (h ? <Records h={h} nombre={alumno.nombre} /> : <Cargando />)}
+
+      {tab === 'logros' && (
+        <>
+          {h ? <Retos h={h} nombre={alumno.nombre} /> : <Cargando />}
+          <Logros alumnoId={alumno.id} nombre={alumno.nombre} />
+          <AsistenciaMes alumnoId={alumno.id} />
+        </>
+      )}
+
+      {tab === 'resumen' && <PesoAltura />}
+
+      {tab !== 'resumen' ? null : !evo || !ind ? (
         <Cargando />
       ) : (
         <>
@@ -72,9 +93,12 @@ export default function Progreso() {
             <Titulo>Km por semana</Titulo>
             {evo.semanas.length ? <GraficoKm semanas={evo.semanas} lunes={evo.lunes} /> : <p className="text-sm text-texto-2">Todavía no hay semanas.</p>}
           </Tarjeta>
+          {h && <Comparar h={h} />}
         </>
       )}
 
+      {tab === 'resumen' && (
+      <>
       <Tarjeta>
         <Titulo>Cumplimiento (8 semanas)</Titulo>
         {total === 0 ? (
@@ -111,6 +135,8 @@ export default function Progreso() {
           </ul>
         )}
       </Tarjeta>
+      </>
+      )}
     </Pantalla>
   )
 }

@@ -7,7 +7,8 @@ import { diasEntre, edad, fechaLarga, hoyPY } from '../../lib/fechas'
 import { conSigno, formatoFecha, formatoPeso, leerNumero } from '../../lib/formato'
 import type { Alumno, Ciclo, Cuota, Medicion, Pago } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
-import { Logros } from '../../components/Logros'
+import { Logros, useHistorial } from '../../components/Logros'
+import { Records } from '../../components/Records'
 import { AsistenciaMes } from '../../components/AsistenciaMes'
 import { Boton, Campo, Cargando, MensajeError, Pestanas, Tarjeta } from '../../components/ui'
 // Los gráficos pesan: se descargan solo al abrir la pestaña Evolución.
@@ -124,7 +125,8 @@ export default function FichaAlumno() {
           <EvolucionAlumno alumnoId={alumno.id} />
           <div className="mt-3 flex flex-col gap-3">
             <AsistenciaMes alumnoId={alumno.id} />
-            <Logros alumnoId={alumno.id} />
+            <RecordsDe alumnoId={alumno.id} nombre={alumno.nombre} />
+            <Logros alumnoId={alumno.id} nombre={alumno.nombre} />
           </div>
         </Suspense>
       )}
@@ -188,4 +190,10 @@ function DatosFisicos({ alumno, pesos, onCambio }: { alumno: Alumno; pesos: Medi
       <MensajeError>{error}</MensajeError>
     </Tarjeta>
   )
+}
+
+/** Récords del alumno (el entrenador también los puede compartir). */
+function RecordsDe({ alumnoId, nombre }: { alumnoId: string; nombre: string }) {
+  const h = useHistorial(alumnoId)
+  return h ? <Records h={h} nombre={nombre} /> : <Cargando />
 }
