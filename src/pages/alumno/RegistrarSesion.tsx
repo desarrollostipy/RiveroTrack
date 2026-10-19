@@ -1,14 +1,14 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { useMiAlumno } from '../../lib/alumno'
 import { llamarFuncion } from '../../lib/api'
 import { mensajeError } from '../../lib/consultas'
 import { DIAS, diaSemana } from '../../lib/fechas'
-import { formatoDuracion, formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo, leerDuracion, leerNumero } from '../../lib/formato'
+import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo, leerDuracion, leerNumero } from '../../lib/formato'
 import type { Molestia, SesionPlan, SesionReg, Split } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
-import { useTipos } from '../../components/Semana'
+import { ObjetivosSesion, useTipos } from '../../components/Semana'
 import { AreaTexto, Boton, Campo, Cargando, EtiquetaTipo, MensajeError, Opciones, Pestanas, Tarjeta } from '../../components/ui'
 
 type DatosGarmin = {
@@ -193,12 +193,10 @@ export default function RegistrarSesion() {
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <EtiquetaTipo nombre={t.nombre} color={t.color} />
           <span className="font-semibold">{sesion.resumen || t.nombre}</span>
-          {(sesion.ritmo_min_seg || sesion.ritmo_max_seg) && (
-            <span className="font-mono text-sm text-texto-2">{formatoRango(sesion.ritmo_min_seg, sesion.ritmo_max_seg)}/km</span>
-          )}
-          {(sesion.fc_obj_min || sesion.fc_obj_max) && <span className="font-mono text-sm text-mal">❤ {formatoPpm(sesion.fc_obj_min, sesion.fc_obj_max)}</span>}
         </div>
-        {sesion.estructura && <p className="mt-1 text-sm text-texto-2">{sesion.estructura}</p>}
+        <div className="mt-2">
+          <ObjetivosSesion s={sesion} />
+        </div>
       </Tarjeta>
 
       <Pestanas

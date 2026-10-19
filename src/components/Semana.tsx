@@ -3,7 +3,7 @@ import { cargarTipos } from '../lib/consultas'
 import { estadoDia, TEXTO_ESTADO, type EstadoDia } from '../lib/calculos'
 import { DIAS, DIAS_CORTOS, diasDeSemana } from '../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo } from '../lib/formato'
-import type { SesionCompleta, TipoSesion } from '../lib/tipos'
+import type { SesionCompleta, SesionPlan, TipoSesion } from '../lib/tipos'
 import { EtiquetaTipo, Semaforo } from './ui'
 
 export function useTipos() {
@@ -65,6 +65,38 @@ export function LeyendaCuadritos() {
   )
 }
 
+/**
+ * Resumen completo de lo que indicó el entrenador:
+ * 📏 10 km · ⏱ 60 min · ⚡ 5:50–6:05 /km · ❤ 125–135 ppm, más estructura y notas.
+ */
+export function ObjetivosSesion({ s, grande = false, sinNotas = false }: { s: SesionPlan; grande?: boolean; sinNotas?: boolean }) {
+  if (s.tipo === 'descanso') return s.notas && !sinNotas ? <p className="text-sm text-texto-2">📝 {s.notas}</p> : null
+  const items: { icono: string; texto: string; etiqueta: string; clase?: string }[] = []
+  if (s.distancia_km) items.push({ icono: '📏', texto: `${formatoKm(s.distancia_km)} km`, etiqueta: 'Distancia' })
+  if (s.duracion_min) items.push({ icono: '⏱', texto: `${s.duracion_min} min`, etiqueta: 'Duración' })
+  if (s.ritmo_min_seg || s.ritmo_max_seg) items.push({ icono: '⚡', texto: `${formatoRango(s.ritmo_min_seg, s.ritmo_max_seg)} /km`, etiqueta: 'Ritmo' })
+  if (s.fc_obj_min || s.fc_obj_max) {
+    const rango = s.fc_obj_min && s.fc_obj_max && s.fc_obj_min !== s.fc_obj_max
+    items.push({ icono: '❤', texto: `${rango ? '' : 'hasta '}${formatoPpm(s.fc_obj_min, s.fc_obj_max)}`, etiqueta: 'Pulso', clase: 'text-mal' })
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      {items.length > 0 && (
+        <ul className={`flex flex-wrap gap-1.5 ${grande ? 'text-base' : 'text-sm'}`}>
+          {items.map((it) => (
+            <li key={it.etiqueta} className={`rounded-lg bg-fondo px-2 py-1 font-mono ${it.clase ?? ''}`} title={it.etiqueta}>
+              <span aria-hidden="true">{it.icono}</span> <span className="sr-only">{it.etiqueta}:</span>
+              {it.texto}
+            </li>
+          ))}
+        </ul>
+      )}
+      {s.estructura && <p className={`${grande ? 'text-base' : 'text-sm'} text-marino`}>{s.estructura}</p>}
+      {s.notas && !sinNotas && <p className="rounded-xl bg-azul/5 px-3 py-2 text-sm">📝 {s.notas}</p>}
+    </div>
+  )
+}
+
 /** Lo que hizo el alumno, en una línea: ✓ 12,1 km · 5:24/km */
 export function TextoRegistro({ s }: { s: SesionCompleta }) {
   const r = s.registro
@@ -113,15 +145,8 @@ export function ListaDias({
                       {delDia.length > 1 && <span className="text-xs text-texto-2">{s.turno === 1 ? 'Mañana' : 'Tarde'}</span>}
                       <EtiquetaTipo nombre={t.nombre} color={t.color} />
                       <span className="font-semibold">{s.resumen || t.nombre}</span>
-                      {(s.ritmo_min_seg || s.ritmo_max_seg) && (
-                        <span className="font-mono text-sm text-texto-2">{formatoRango(s.ritmo_min_seg, s.ritmo_max_seg)}/km</span>
-                      )}
-                      {(s.fc_obj_min || s.fc_obj_max) && (
-                        <span className="font-mono text-sm text-mal">❤ {formatoPpm(s.fc_obj_min, s.fc_obj_max)}</span>
-                      )}
                     </div>
-                    {s.estructura && <p className="text-sm text-texto-2">{s.estructura}</p>}
-                    {s.notas && <p className="text-sm text-texto-2">📝 {s.notas}</p>}
+                    <ObjetivosSesion s={s} />
                     {s.tipo !== 'descanso' && (
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
