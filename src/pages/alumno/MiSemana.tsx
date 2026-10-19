@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useMiAlumno } from '../../lib/alumno'
-import { cargarSemanas } from '../../lib/consultas'
+import { cargarSemanas, semanasEnMemoria } from '../../lib/consultas'
 import { resumenSemana } from '../../lib/calculos'
 import { hoyPY, lunesDe, rangoSemana, sumarDias } from '../../lib/fechas'
 import { formatoKm } from '../../lib/formato'
@@ -17,8 +17,16 @@ export default function MiSemana() {
   const [semana, setSemana] = useState<SemanaCompleta | null | undefined>(undefined)
 
   useEffect(() => {
-    setSemana(undefined)
-    cargarSemanas({ alumnoId: alumno.id, desde: lunes, hasta: lunes }).then(([s]) => setSemana(s ?? null))
+    const consulta = { alumnoId: alumno.id, desde: lunes, hasta: lunes }
+    // Si ya se vio esta semana, se muestra al instante y se actualiza de fondo.
+    const guardada = semanasEnMemoria(consulta)
+    setSemana(guardada ? (guardada[0] ?? null) : undefined)
+    cargarSemanas(consulta).then(([s]) => setSemana(s ?? null))
+    // Precargar las semanas vecinas para que las flechas respondan al instante.
+    for (const d of [-7, 7]) {
+      const vecina = { alumnoId: alumno.id, desde: sumarDias(lunes, d), hasta: sumarDias(lunes, d) }
+      if (!semanasEnMemoria(vecina)) cargarSemanas(vecina).catch(() => {})
+    }
   }, [alumno.id, lunes])
 
   const r = semana ? resumenSemana(semana.sesiones) : null

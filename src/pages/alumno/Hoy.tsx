@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { useSesion } from '../../lib/sesion'
 import { useMiAlumno } from '../../lib/alumno'
-import { cargarSemanas } from '../../lib/consultas'
+import { cargarSemanas, semanasEnMemoria } from '../../lib/consultas'
 import { estadoDeuda } from '../../lib/calculos'
 import { diasEntre, fechaLarga, hoyPY, lunesDe, nombreMes } from '../../lib/fechas'
 import { formatoFecha, formatoGs } from '../../lib/formato'
@@ -21,7 +21,11 @@ export default function Hoy() {
   const { tipo } = useTipos()
   const hoy = hoyPY()
   const lunes = lunesDe(hoy)
-  const [semana, setSemana] = useState<SemanaCompleta | null | undefined>(undefined)
+  // Lo último visto se muestra al instante mientras se actualiza.
+  const [semana, setSemana] = useState<SemanaCompleta | null | undefined>(() => {
+    const g = semanasEnMemoria({ alumnoId: alumno.id, desde: lunes, hasta: lunes })
+    return g ? (g[0] ?? null) : undefined
+  })
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const [competencia, setCompetencia] = useState<Competencia | null>(null)
   const [cuotas, setCuotas] = useState<(Cuota & { pagos: Pago | null })[]>([])

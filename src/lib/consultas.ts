@@ -10,11 +10,41 @@ const ordenSesion = (a: SesionCompleta, b: SesionCompleta) => a.fecha.localeComp
  * Planes con sus sesiones, lo registrado y las evaluaciones.
  * Para el alumno, RLS deja pasar solo los planes publicados.
  */
+// Última respuesta de cada consulta, para mostrar algo al instante
+// mientras se actualiza de fondo.
+const memoria = new Map<string, SemanaCompleta[]>()
+export const semanasEnMemoria = (o: { alumnoId?: string; desde: string; hasta: string }) =>
+  memoria.get(`${o.alumnoId ?? '*'}|${o.desde}|${o.hasta}`)
+
 export async function cargarSemanas(opciones: {
   alumnoId?: string
   desde: string // lunes
   hasta: string // lunes
 }): Promise<SemanaCompleta[]> {
+  const clave = `${opciones.alumnoId ?? '*'}|${opciones.desde}|${opciones.hasta}`
+  const r = await consultarSemanas(opciones)
+  memoria.set(clave, r)
+  return r
+}
+
+let sinFuncionRapida = false
+
+async function consultarSemanas(opciones: { alumnoId?: string; desde: string; hasta: string }): Promise<SemanaCompleta[]> {
+  // De un alumno: una sola consulta en la base (más rápida).
+  if (opciones.alumnoId && !sinFuncionRapida) {
+    const { data, error } = await supabase.rpc('semanas_completas', {
+      p_alumno_id: opciones.alumnoId,
+      p_desde: opciones.desde,
+      p_hasta: opciones.hasta,
+    })
+    if (!error) {
+      return ((data ?? []) as SemanaCompleta[]).map((p) => ({ ...p, sesiones: p.sesiones ?? [] }))
+    }
+    // Si todavía no se corrió el SQL de la función, se usa la consulta de siempre.
+    if (error.code === 'PGRST202' || error.message?.includes('semanas_completas')) sinFuncionRapida = true
+    else throw error
+  }
+
   let q = supabase
     .from('planes_semanales')
     .select('*, sesiones_planificadas(*, sesiones_registradas(*), evaluaciones(*))')

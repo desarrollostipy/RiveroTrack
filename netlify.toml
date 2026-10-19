@@ -8,6 +8,13 @@
 [functions]
   directory = "netlify/functions"
 
+# Los archivos de /assets cambian de nombre en cada versión: se pueden
+# guardar en el celular sin volver a pedirlos.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 # La app es de una sola página: cualquier ruta devuelve index.html.
 [[redirects]]
   from = "/*"

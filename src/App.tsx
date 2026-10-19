@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { useSesion } from './lib/sesion'
 import { configFaltante } from './lib/supabase'
@@ -10,17 +10,22 @@ import Ingreso from './pages/Ingreso'
 import PrimerUso from './pages/PrimerUso'
 import CambiarPin from './pages/CambiarPin'
 import Registro from './pages/Registro'
-import Solicitudes from './pages/entrenador/Solicitudes'
-import Alumnos from './pages/entrenador/Alumnos'
-import FichaAlumno from './pages/entrenador/FichaAlumno'
-import AlumnoForm from './pages/entrenador/AlumnoForm'
-import EditorPlan from './pages/entrenador/EditorPlan'
-import EvaluarSesion from './pages/entrenador/EvaluarSesion'
-import { Cuentas, Evolucion, Planes } from './pages/entrenador/Secciones'
-import { Hoy, MiSemana, Progreso } from './pages/alumno/Secciones'
-import RegistrarSesion from './pages/alumno/RegistrarSesion'
-import Carreras from './pages/alumno/Carreras'
-import CompetenciasEntrenador from './pages/entrenador/CompetenciasEntrenador'
+const Solicitudes = lazy(() => import('./pages/entrenador/Solicitudes'))
+// Cada pantalla se descarga recién cuando se abre: la primera carga es más liviana.
+const Alumnos = lazy(() => import('./pages/entrenador/Alumnos'))
+const FichaAlumno = lazy(() => import('./pages/entrenador/FichaAlumno'))
+const AlumnoForm = lazy(() => import('./pages/entrenador/AlumnoForm'))
+const EditorPlan = lazy(() => import('./pages/entrenador/EditorPlan'))
+const EvaluarSesion = lazy(() => import('./pages/entrenador/EvaluarSesion'))
+const Planes = lazy(() => import('./pages/entrenador/Planes'))
+const Cuentas = lazy(() => import('./pages/entrenador/Cuentas'))
+const Evolucion = lazy(() => import('./pages/entrenador/Evolucion'))
+const CompetenciasEntrenador = lazy(() => import('./pages/entrenador/CompetenciasEntrenador'))
+const Hoy = lazy(() => import('./pages/alumno/Hoy'))
+const MiSemana = lazy(() => import('./pages/alumno/MiSemana'))
+const Progreso = lazy(() => import('./pages/alumno/Progreso'))
+const RegistrarSesion = lazy(() => import('./pages/alumno/RegistrarSesion'))
+const Carreras = lazy(() => import('./pages/alumno/Carreras'))
 
 const PESTANAS_ENTRENADOR: Pestana[] = [
   { a: '/alumnos', texto: 'Alumnos', icono: <IconoAlumnos /> },
@@ -75,6 +80,7 @@ export default function App() {
 
   if (perfil.rol === 'entrenador') {
     return (
+      <Suspense fallback={<Cargando pantalla />}>
       <Routes>
         <Route element={<ConPestanas pestanas={PESTANAS_ENTRENADOR} />}>
           <Route path="/alumnos" element={<Alumnos />} />
@@ -91,11 +97,13 @@ export default function App() {
         <Route path="/competencias" element={<CompetenciasEntrenador />} />
         <Route path="*" element={<Navigate to="/alumnos" replace />} />
       </Routes>
+      </Suspense>
     )
   }
 
   return (
     <MiAlumnoProvider>
+      <Suspense fallback={<Cargando pantalla />}>
       <Routes>
         <Route element={<ConPestanas pestanas={PESTANAS_ALUMNO} />}>
           <Route path="/hoy" element={<Hoy />} />
@@ -106,6 +114,7 @@ export default function App() {
         <Route path="/registrar/:sesionId" element={<RegistrarSesion />} />
         <Route path="*" element={<Navigate to="/hoy" replace />} />
       </Routes>
+      </Suspense>
     </MiAlumnoProvider>
   )
 }

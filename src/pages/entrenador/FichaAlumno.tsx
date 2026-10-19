@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { cargarAlumno, mensajeError } from '../../lib/consultas'
@@ -8,7 +8,8 @@ import { conSigno, formatoFecha, formatoPeso, leerNumero } from '../../lib/forma
 import type { Alumno, Ciclo, Cuota, Medicion, Pago } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { Boton, Campo, Cargando, MensajeError, Pestanas, Tarjeta } from '../../components/ui'
-import { EvolucionAlumno } from '../../components/EvolucionAlumno'
+// Los gráficos pesan: se descargan solo al abrir la pestaña Evolución.
+const EvolucionAlumno = lazy(() => import('../../components/EvolucionAlumno').then((m) => ({ default: m.EvolucionAlumno })))
 import { TabSemana } from './ficha/TabSemana'
 import { TabPagos } from './ficha/TabPagos'
 import { Acceso } from './ficha/Acceso'
@@ -111,7 +112,11 @@ export default function FichaAlumno() {
       />
       {tab === 'semana' && <TabSemana alumnoId={alumno.id} />}
       {tab === 'pagos' && <TabPagos alumno={alumno} cuotas={cuotas} pagos={pagos} onCambio={cargar} />}
-      {tab === 'evolucion' && <EvolucionAlumno alumnoId={alumno.id} />}
+      {tab === 'evolucion' && (
+        <Suspense fallback={<Cargando />}>
+          <EvolucionAlumno alumnoId={alumno.id} />
+        </Suspense>
+      )}
 
       <Acceso alumno={alumno} onCambio={cargar} />
       <p className="text-center text-xs text-texto-2">Alta: {fechaLarga(alumno.created_at.slice(0, 10))}</p>

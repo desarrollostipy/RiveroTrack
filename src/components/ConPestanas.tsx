@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import { NavLink, Outlet } from 'react-router'
+import { Cargando } from './ui'
 
 export type Pestana = { a: string; texto: string; icono: ReactNode }
 
@@ -7,7 +8,10 @@ export type Pestana = { a: string; texto: string; icono: ReactNode }
 export function ConPestanas({ pestanas }: { pestanas: Pestana[] }) {
   return (
     <div className="min-h-dvh pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-      <Outlet />
+      {/* Al cambiar de pestaña, la barra de abajo queda fija mientras carga. */}
+      <Suspense fallback={<Cargando />}>
+        <Outlet />
+      </Suspense>
       <nav
         aria-label="Navegación principal"
         className="fixed inset-x-0 bottom-0 z-20 border-t border-borde bg-white pb-[env(safe-area-inset-bottom)]"
