@@ -25,6 +25,13 @@ export const formatoRango = (min: number | null, max: number | null) => {
   return ''
 }
 
+// Pulso objetivo: '130 ppm' · '125–135 ppm' · '' si no hay
+export const formatoPpm = (min: number | null, max: number | null) => {
+  if (min && max && min !== max) return `${min}–${max} ppm`
+  if (min || max) return `${max ?? min} ppm`
+  return ''
+}
+
 // 3725 → '1:02:05' · 1500 → '25:00'
 export const formatoDuracion = (seg: number) => {
   const t = Math.round(seg)

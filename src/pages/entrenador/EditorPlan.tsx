@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { cargarAlumno, cargarSemanas, mensajeError } from '../../lib/consultas'
 import { kmPlanificados, textoWhatsApp } from '../../lib/calculos'
 import { DIAS, diasDeSemana, hoyPY, lunesDe, rangoSemana, sumarDias } from '../../lib/fechas'
-import { formatoFecha, formatoKm, formatoRango, formatoRitmo, leerNumero, leerRitmo } from '../../lib/formato'
+import { formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo, leerNumero, leerRitmo } from '../../lib/formato'
 import type { Alumno, Plan, SesionPlan } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { useTipos } from '../../components/Semana'
@@ -22,6 +22,8 @@ type Borrador = {
   duracion: string
   ritmoMin: string
   ritmoMax: string
+  fcMin: string
+  fcMax: string
   estructura: string
   notas: string
   registrada?: boolean
@@ -41,6 +43,8 @@ const aBorrador = (s: SesionPlan, registrada = false): Borrador => ({
   duracion: s.duracion_min ? String(s.duracion_min) : '',
   ritmoMin: s.ritmo_min_seg ? formatoRitmo(s.ritmo_min_seg) : '',
   ritmoMax: s.ritmo_max_seg ? formatoRitmo(s.ritmo_max_seg) : '',
+  fcMin: s.fc_obj_min ? String(s.fc_obj_min) : '',
+  fcMax: s.fc_obj_max ? String(s.fc_obj_max) : '',
   estructura: s.estructura ?? '',
   notas: s.notas ?? '',
   registrada,
@@ -50,6 +54,11 @@ const aFila = (b: Borrador, planId: string) => {
   let min = leerRitmo(b.ritmoMin)
   let max = leerRitmo(b.ritmoMax)
   if (min && max && min > max) [min, max] = [max, min]
+  // Pulso: con un solo valor se guarda como tope (fc_obj_max).
+  let fcMin = leerNumero(b.fcMin), fcMax = leerNumero(b.fcMax)
+  if (fcMin && !fcMax) [fcMin, fcMax] = [null, fcMin]
+  if (fcMin && fcMax && fcMin > fcMax) [fcMin, fcMax] = [fcMax, fcMin]
+  const fcValida = (n: number | null) => (n && n >= 60 && n <= 230 ? Math.round(n) : null)
   const descanso = b.tipo === 'descanso'
   return {
     ...(b.id ? { id: b.id } : {}),
@@ -62,6 +71,8 @@ const aFila = (b: Borrador, planId: string) => {
     duracion_min: descanso ? null : (leerNumero(b.duracion) ?? null),
     ritmo_min_seg: descanso ? null : min,
     ritmo_max_seg: descanso ? null : max,
+    fc_obj_min: descanso ? null : fcValida(fcMin),
+    fc_obj_max: descanso ? null : fcValida(fcMax),
     estructura: descanso ? null : b.estructura.trim() || null,
     notas: b.notas.trim() || null,
   }
@@ -350,6 +361,9 @@ export default function EditorPlan() {
                         {(b.ritmoMin || b.ritmoMax) && (
                           <span className="font-mono text-xs text-texto-2">{formatoRango(leerRitmo(b.ritmoMin), leerRitmo(b.ritmoMax))}</span>
                         )}
+                        {(b.fcMin || b.fcMax) && (
+                          <span className="font-mono text-xs text-mal">❤ {formatoPpm(leerNumero(b.fcMin), leerNumero(b.fcMax))}</span>
+                        )}
                       </span>
                     ))}
                   </span>
@@ -416,6 +430,30 @@ export default function EditorPlan() {
                                 />
                               </div>
                             </fieldset>
+                            <fieldset>
+                              <legend className="mb-1 text-sm font-medium">Pulso objetivo (ppm)</legend>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">de</span>
+                                <input
+                                  aria-label="Pulso desde"
+                                  placeholder="125"
+                                  inputMode="numeric"
+                                  className="min-h-11 w-24 rounded-xl border border-borde px-3 font-mono"
+                                  value={b.fcMin}
+                                  onChange={(e) => cambiar(b.clave, { fcMin: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                                />
+                                <span className="text-sm">a</span>
+                                <input
+                                  aria-label="Pulso hasta"
+                                  placeholder="135"
+                                  inputMode="numeric"
+                                  className="min-h-11 w-24 rounded-xl border border-borde px-3 font-mono"
+                                  value={b.fcMax}
+                                  onChange={(e) => cambiar(b.clave, { fcMax: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                                />
+                              </div>
+                              <p className="mt-1 text-xs text-texto-2">Para un solo valor (ej: rodaje a 130), completá solo uno de los dos.</p>
+                            </fieldset>
                             <AreaTexto
                               id={`est-${b.clave}`}
                               label="Detalle / estructura"
@@ -471,7 +509,7 @@ export default function EditorPlan() {
 }
 
 function vacio(fecha: string, turno: 1 | 2, tipo: string): Borrador {
-  return { clave: nuevaClave(), fecha, turno, tipo, resumen: '', distancia: '', duracion: '', ritmoMin: '', ritmoMax: '', estructura: '', notas: '' }
+  return { clave: nuevaClave(), fecha, turno, tipo, resumen: '', distancia: '', duracion: '', ritmoMin: '', ritmoMax: '', fcMin: '', fcMax: '', estructura: '', notas: '' }
 }
 
 // "520" → "5:20" mientras se tipea (teclado numérico del celular).

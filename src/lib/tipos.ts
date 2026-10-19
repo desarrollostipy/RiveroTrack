@@ -46,6 +46,8 @@ export type SesionPlan = {
   duracion_min: number | null
   ritmo_min_seg: number | null
   ritmo_max_seg: number | null
+  fc_obj_min: number | null
+  fc_obj_max: number | null
   estructura: string | null
   notas: string | null
 }

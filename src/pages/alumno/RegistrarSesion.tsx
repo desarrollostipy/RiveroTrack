@@ -5,7 +5,7 @@ import { useMiAlumno } from '../../lib/alumno'
 import { llamarFuncion } from '../../lib/api'
 import { mensajeError } from '../../lib/consultas'
 import { DIAS, diaSemana } from '../../lib/fechas'
-import { formatoDuracion, formatoFecha, formatoKm, formatoRango, formatoRitmo, leerDuracion, leerNumero } from '../../lib/formato'
+import { formatoDuracion, formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo, leerDuracion, leerNumero } from '../../lib/formato'
 import type { Molestia, SesionPlan, SesionReg, Split } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { useTipos } from '../../components/Semana'
@@ -196,6 +196,7 @@ export default function RegistrarSesion() {
           {(sesion.ritmo_min_seg || sesion.ritmo_max_seg) && (
             <span className="font-mono text-sm text-texto-2">{formatoRango(sesion.ritmo_min_seg, sesion.ritmo_max_seg)}/km</span>
           )}
+          {(sesion.fc_obj_min || sesion.fc_obj_max) && <span className="font-mono text-sm text-mal">❤ {formatoPpm(sesion.fc_obj_min, sesion.fc_obj_max)}</span>}
         </div>
         {sesion.estructura && <p className="mt-1 text-sm text-texto-2">{sesion.estructura}</p>}
       </Tarjeta>

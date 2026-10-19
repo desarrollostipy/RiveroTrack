@@ -45,11 +45,16 @@ export default function Progreso() {
         <>
           <div className="grid grid-cols-2 gap-2">
             <Indicador valor={`${formatoKm(ind.kmTotal)} km`} texto="en las últimas 8 semanas" tono="azul" />
-            <Indicador
-              valor={ind.actual ? formatoRitmo(ind.actual) : '—'}
-              texto={ind.anterior ? `ritmo en fondos (antes ${formatoRitmo(ind.anterior)})` : 'ritmo actual en fondos'}
-              tono={ind.variacion !== null && ind.variacion < 0 ? 'ok' : 'normal'}
-            />
+            {ind.actual ? (
+              <Indicador
+                valor={`${formatoRitmo(ind.actual)}/km`}
+                texto={ind.anterior ? `ritmo en fondos (antes ${formatoRitmo(ind.anterior)})` : 'ritmo actual en fondos'}
+                tono={ind.variacion !== null && ind.variacion < 0 ? 'ok' : 'normal'}
+              />
+            ) : (
+              // Sin fondos registrados todavía: ritmo promedio de todas las sesiones.
+              <Indicador valor={ind.ritmoGeneral ? `${formatoRitmo(ind.ritmoGeneral)}/km` : '—'} texto="ritmo promedio (todas las sesiones)" />
+            )}
           </div>
           <Tarjeta>
             <Titulo>Km por semana</Titulo>

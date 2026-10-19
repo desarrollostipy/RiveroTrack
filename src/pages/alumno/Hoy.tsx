@@ -6,7 +6,7 @@ import { useMiAlumno } from '../../lib/alumno'
 import { cargarSemanas } from '../../lib/consultas'
 import { estadoDeuda } from '../../lib/calculos'
 import { diasEntre, fechaLarga, hoyPY, lunesDe, nombreMes } from '../../lib/fechas'
-import { formatoFecha, formatoGs, formatoKm, formatoRango } from '../../lib/formato'
+import { formatoFecha, formatoGs, formatoKm, formatoPpm, formatoRango } from '../../lib/formato'
 import type { Competencia, Cuota, Evaluacion, Pago, SemanaCompleta } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { CuadritosSemana, TextoRegistro, useTipos } from '../../components/Semana'
@@ -83,6 +83,12 @@ export default function Hoy() {
                     <p className="font-titulo text-2xl font-extrabold">{s.resumen || t.nombre}</p>
                     {(s.ritmo_min_seg || s.ritmo_max_seg) && (
                       <p className="font-mono">Ritmo {formatoRango(s.ritmo_min_seg, s.ritmo_max_seg)} /km</p>
+                    )}
+                    {(s.fc_obj_min || s.fc_obj_max) && (
+                      <p className="font-mono text-mal">
+                        ❤ Pulso {s.fc_obj_min && s.fc_obj_max && s.fc_obj_min !== s.fc_obj_max ? '' : 'hasta '}
+                        {formatoPpm(s.fc_obj_min, s.fc_obj_max)}
+                      </p>
                     )}
                     {s.distancia_km && !s.resumen?.includes('km') && <p className="font-mono text-sm">{formatoKm(s.distancia_km)} km</p>}
                     {s.estructura && <p className="text-texto-2">{s.estructura}</p>}

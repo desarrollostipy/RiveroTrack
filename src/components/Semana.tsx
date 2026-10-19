@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { cargarTipos } from '../lib/consultas'
 import { estadoDia, TEXTO_ESTADO, type EstadoDia } from '../lib/calculos'
 import { DIAS, DIAS_CORTOS, diasDeSemana } from '../lib/fechas'
-import { formatoDuracion, formatoFecha, formatoKm, formatoRango, formatoRitmo } from '../lib/formato'
+import { formatoDuracion, formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo } from '../lib/formato'
 import type { SesionCompleta, TipoSesion } from '../lib/tipos'
 import { EtiquetaTipo, Semaforo } from './ui'
 
@@ -115,6 +115,9 @@ export function ListaDias({
                       <span className="font-semibold">{s.resumen || t.nombre}</span>
                       {(s.ritmo_min_seg || s.ritmo_max_seg) && (
                         <span className="font-mono text-sm text-texto-2">{formatoRango(s.ritmo_min_seg, s.ritmo_max_seg)}/km</span>
+                      )}
+                      {(s.fc_obj_min || s.fc_obj_max) && (
+                        <span className="font-mono text-sm text-mal">❤ {formatoPpm(s.fc_obj_min, s.fc_obj_max)}</span>
                       )}
                     </div>
                     {s.estructura && <p className="text-sm text-texto-2">{s.estructura}</p>}

@@ -37,7 +37,12 @@ export async function cargarEvolucion(alumnoId: string) {
       .gte('fecha', sumarDias(desde, -56))
       .order('fecha'),
   ])
-  const semanas = ((r.data ?? []) as FilaResumen[]).map((s) => ({ ...s, km_plan: Number(s.km_plan), km_real: Number(s.km_real) }))
+  const semanas = ((r.data ?? []) as FilaResumen[]).map((s) => ({
+    ...s,
+    km_plan: Number(s.km_plan),
+    km_real: Number(s.km_real),
+    ritmo_prom_seg: s.ritmo_prom_seg === null ? null : Number(s.ritmo_prom_seg),
+  }))
   const fondos = ((f.data ?? []) as { fecha: string; ritmo_prom_seg: number | null }[])
     .filter((x) => x.ritmo_prom_seg)
     .map((x) => ({ fecha: x.fecha, ritmo: x.ritmo_prom_seg! }))
@@ -57,7 +62,11 @@ export function indicadores(semanas: FilaResumen[], fondos: PuntoFondo[], lunes:
   const anterior = media(previos)
   const variacion = actual && anterior ? Math.round(actual - anterior) : null
   const kmTotal = semanas.reduce((t, s) => t + s.km_real, 0)
-  return { pct, promedio, actual, anterior, variacion, kmTotal }
+  // Ritmo promedio de todas las sesiones, ponderado por km.
+  const conRitmo = semanas.filter((s) => s.ritmo_prom_seg && s.km_real > 0)
+  const kmConRitmo = conRitmo.reduce((t, s) => t + s.km_real, 0)
+  const ritmoGeneral = kmConRitmo ? conRitmo.reduce((t, s) => t + s.ritmo_prom_seg! * s.km_real, 0) / kmConRitmo : null
+  return { pct, promedio, actual, anterior, variacion, kmTotal, ritmoGeneral }
 }
 
 export function GraficoKm({ semanas, lunes }: { semanas: FilaResumen[]; lunes: string }) {

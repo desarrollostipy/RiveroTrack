@@ -68,6 +68,8 @@ type SesionPlan = {
   duracion_min: number | null
   ritmo_min_seg: number | null
   ritmo_max_seg: number | null
+  fc_obj_min?: number | null
+  fc_obj_max?: number | null
   estructura: string | null
 }
 
@@ -92,6 +94,8 @@ function plantilla(nivel: Nivel, semana: number): SesionPlan[] {
     s(6, 'descanso', 'Descanso', null, null, null, null),
   ]
   if (nivel === 'avanzado') lista.push(s(2, 'rodaje', '6 km regenerativo', 6, null, b + 35, b + 50, null, 2))
+  // Rodajes con pulso objetivo (ej: rodaje a 130–140 ppm).
+  for (const x of lista) if (x.tipo === 'rodaje') Object.assign(x, { fc_obj_min: [125, 130, 135][i], fc_obj_max: [135, 140, 145][i] })
   return lista
 }
 

@@ -32,7 +32,10 @@
   }
 }
 
-/* Barra/distintivo que Netlify agrega a las páginas publicadas: no se muestra en la app. */
+/* Barra y cartel "Powered by Netlify" que Netlify agrega a la página:
+   la app vive entera dentro de #root, así que todo lo demás se oculta. */
+body > :not(#root):not(script):not(style):not(link),
+html > :not(head):not(body),
 #nl-hud-frame,
 iframe[title='Netlify'] {
   display: none !important;

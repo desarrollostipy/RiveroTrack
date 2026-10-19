@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { mensajeError } from '../../lib/consultas'
-import { compararRitmo, estimarCiclo, kmPlanificados } from '../../lib/calculos'
+import { compararFc, compararRitmo, estimarCiclo, kmPlanificados } from '../../lib/calculos'
 import { DIAS, diaSemana } from '../../lib/fechas'
-import { formatoDuracion, formatoFecha, formatoKm, formatoRango, formatoRitmo } from '../../lib/formato'
+import { formatoDuracion, formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo } from '../../lib/formato'
 import type { Alumno, Evaluacion, Resultado, SesionPlan, SesionReg } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { useTipos } from '../../components/Semana'
@@ -90,6 +90,7 @@ export default function EvaluarSesion() {
           )}
           {s.duracion_min && <p className="font-mono text-sm">{s.duracion_min} min</p>}
           {(s.ritmo_min_seg || s.ritmo_max_seg) && <p className="font-mono text-sm">{formatoRango(s.ritmo_min_seg, s.ritmo_max_seg)}/km</p>}
+          {(s.fc_obj_min || s.fc_obj_max) && <p className="font-mono text-sm text-mal">❤ {formatoPpm(s.fc_obj_min, s.fc_obj_max)}</p>}
           {s.estructura && <p className="mt-1 text-xs text-texto-2">{s.estructura}</p>}
         </Tarjeta>
         <Tarjeta className="p-3">
@@ -106,9 +107,13 @@ export default function EvaluarSesion() {
               )}
               {(r.fc_prom || r.fc_max) && (
                 <p>
-                  FC {r.fc_prom ?? '—'} / {r.fc_max ?? '—'}
+                  FC <span className={claseFc(compararFc(r.fc_prom, s.fc_obj_min, s.fc_obj_max))}>{r.fc_prom ?? '—'}</span> / {r.fc_max ?? '—'}
+                  {compararFc(r.fc_prom, s.fc_obj_min, s.fc_obj_max) === 'alto' && <span className="block font-sans text-xs text-mal">pulso más alto que el objetivo</span>}
+                  {compararFc(r.fc_prom, s.fc_obj_min, s.fc_obj_max) === 'bajo' && <span className="block font-sans text-xs text-mal">pulso más bajo que el objetivo</span>}
+                  {compararFc(r.fc_prom, s.fc_obj_min, s.fc_obj_max) === 'en_rango' && <span className="block font-sans text-xs text-ok">pulso en rango</span>}
                 </p>
               )}
+              {!r.fc_prom && (s.fc_obj_min || s.fc_obj_max) && <p className="font-sans text-xs text-texto-2">No cargó el pulso.</p>}
             </dl>
           ) : (
             <p className="text-sm text-mal">No registró esta sesión.</p>
@@ -210,4 +215,5 @@ export default function EvaluarSesion() {
   )
 }
 
+const claseFc = (c: ReturnType<typeof compararFc>) => (c === 'en_rango' ? 'text-ok' : c ? 'text-mal' : '')
 const claseRitmo = (c: ReturnType<typeof compararRitmo>) => (c === 'en_rango' ? 'text-ok' : c === 'lento' || c === 'rapido' ? 'text-mal' : '')

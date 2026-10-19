@@ -35,6 +35,16 @@ export function compararRitmo(ritmo: number | null, min: number | null, max: num
   return 'en_rango'
 }
 
+// Pulso real contra el objetivo. Con un solo valor, es un tope ("hasta 130").
+export type EnRangoFc = 'en_rango' | 'alto' | 'bajo' | null
+export function compararFc(fc: number | null, min: number | null, max: number | null, tolerancia = 3): EnRangoFc {
+  if (!fc || (!min && !max)) return null
+  const tope = max ?? min!
+  if (fc > tope + tolerancia) return 'alto'
+  if (min && max && min !== max && fc < min - tolerancia) return 'bajo'
+  return 'en_rango'
+}
+
 // ---------- Estado de cada día (cuadritos) ----------
 
 export type EstadoDia = Resultado | 'por_evaluar' | 'sin_registro' | 'hoy' | 'futuro' | 'descanso' | 'sin_plan'
@@ -169,7 +179,9 @@ export function textoWhatsApp(sesiones: SesionPlan[], lunes: string, nombresTipo
       const min = s.ritmo_min_seg, max = s.ritmo_max_seg
       const mmss = (x: number) => `${Math.floor(x / 60)}:${String(x % 60).padStart(2, '0')}`
       const rango = min && max ? ` (${mmss(min)}–${mmss(max)})` : min || max ? ` (${mmss((min ?? max)!)})` : ''
-      return base + rango
+      const fcMin = s.fc_obj_min, fcMax = s.fc_obj_max
+      const pulso = fcMin && fcMax && fcMin !== fcMax ? ` ❤${fcMin}–${fcMax} ppm` : fcMin || fcMax ? ` ❤${fcMax ?? fcMin} ppm` : ''
+      return base + rango + pulso
     })
     return `${nombre}: ${partes.join(' / ')}`
   })
