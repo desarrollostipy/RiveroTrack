@@ -128,6 +128,7 @@ export type Competencia = {
   estado: 'propuesta' | 'aprobada' | 'rechazada'
   propuesta_por: 'alumno' | 'entrenador'
   lugar: string | null
+  hora_largada?: string | null
   comentario_alumno: string | null
   comentario_entrenador: string | null
   respondida_at: string | null

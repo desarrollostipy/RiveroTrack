@@ -9,6 +9,7 @@ import { leerDuracion, leerNumero } from '../../lib/formato'
 import type { Competencia } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { DetalleCompetencia, FormResultado, OpcionesDistancia } from '../../components/Competencias'
+import { EventosAlumno } from '../../components/comunidad/Eventos'
 import { AreaTexto, Boton, Campo, Cargando, Hoja, MensajeError, MensajeOk, Titulo, Vacio } from '../../components/ui'
 
 // Las competencias del alumno: proponer, ver si el profe la aprobó,
@@ -53,6 +54,7 @@ export default function Carreras() {
       }
     >
       <MensajeOk>{aviso}</MensajeOk>
+      <EventosAlumno alumnoId={alumno.id} />
       {lista === null && <Cargando />}
 
       {lista && (
@@ -65,6 +67,11 @@ export default function Carreras() {
           )}
           {proximas.map((c) => (
             <DetalleCompetencia key={c.id} c={c}>
+              {c.estado === 'aprobada' && (
+                <Link to={`/carrera/${c.id}`} className="flex min-h-11 items-center justify-center rounded-xl bg-azul font-semibold text-white">
+                  🏁 Modo carrera
+                </Link>
+              )}
               {c.estado === 'propuesta' && (
                 <Boton variante="texto" className="self-start" onClick={() => retirar(c)}>
                   Retirar propuesta

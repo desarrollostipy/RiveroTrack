@@ -11,6 +11,8 @@ import { Logros, useHistorial } from '../../components/Logros'
 import { Comparar, Records, Retos } from '../../components/Records'
 import { AsistenciaMes } from '../../components/AsistenciaMes'
 import { Metas } from '../../components/salud/Metas'
+import { DesafiosAlumno } from '../../components/comunidad/Desafios'
+import { Ranking } from '../../components/comunidad/Ranking'
 import { Link } from 'react-router'
 import { cargarEvolucion, GraficoKm, indicadores } from '../../components/EvolucionAlumno'
 import { Boton, Campo, Cargando, Indicador, MensajeError, Pestanas, Tarjeta, Titulo, Vacio } from '../../components/ui'
@@ -20,7 +22,7 @@ export default function Progreso() {
   const [evo, setEvo] = useState<Awaited<ReturnType<typeof cargarEvolucion>> | null>(null)
   const [resultados, setResultados] = useState<Resultado[]>([])
   const [marcas, setMarcas] = useState<Marca[]>([])
-  const [tab, setTab] = useState<'resumen' | 'records' | 'logros'>('resumen')
+  const [tab, setTab] = useState<'resumen' | 'records' | 'logros' | 'ranking'>('resumen')
   const h = useHistorial(alumno.id)
 
   useEffect(() => {
@@ -57,7 +59,8 @@ export default function Progreso() {
         opciones={[
           { valor: 'resumen', texto: 'Resumen' },
           { valor: 'records', texto: '🏆 Récords' },
-          { valor: 'logros', texto: '🎯 Retos y logros' },
+          { valor: 'logros', texto: '🎯 Retos' },
+          { valor: 'ranking', texto: '🏅 Ranking' },
         ]}
       />
 
@@ -65,6 +68,7 @@ export default function Progreso() {
 
       {tab === 'logros' && (
         <>
+          {h && <DesafiosAlumno h={h} nombre={alumno.nombre} />}
           {h && <Metas alumnoId={alumno.id} h={h} />}
           {h ? <Retos h={h} nombre={alumno.nombre} /> : <Cargando />}
           <Logros alumnoId={alumno.id} nombre={alumno.nombre} />
@@ -72,6 +76,20 @@ export default function Progreso() {
         </>
       )}
 
+      {tab === 'ranking' && <Ranking modo="alumno" />}
+
+      {tab === 'resumen' && (
+        <Link to="/mi-anio" className="flex items-center gap-3 rounded-2xl bg-linear-to-br from-[#071330] via-marino to-azul px-4 py-3 text-white shadow-md">
+          <span className="text-3xl" aria-hidden="true">
+            🎁
+          </span>
+          <span className="flex-1">
+            <span className="block font-titulo text-lg font-extrabold">Tu {hoyPY().slice(0, 4)} en números</span>
+            <span className="block text-sm text-white/80">Km, horas, mejor mes… listo para compartir</span>
+          </span>
+          <span aria-hidden="true">›</span>
+        </Link>
+      )}
       {tab === 'resumen' && <PesoAltura />}
 
       {tab !== 'resumen' ? null : !evo || !ind ? (

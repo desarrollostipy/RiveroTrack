@@ -82,6 +82,7 @@ export default function CompetenciasEntrenador() {
               {proximas.map((c) => (
                 <DetalleCompetencia key={c.id} c={c}>
                   <p className="-mt-1 text-sm">{nombreDe(c)}</p>
+                  <HoraYPlan c={c} onCambio={cargar} />
                 </DetalleCompetencia>
               ))}
             </>
@@ -104,5 +105,26 @@ export default function CompetenciasEntrenador() {
         </>
       )}
     </Pantalla>
+  )
+}
+
+/** Hora de largada (para el modo carrera y el clima) y acceso al plan de carrera. */
+function HoraYPlan({ c, onCambio }: { c: Competencia; onCambio: () => void }) {
+  const [hora, setHora] = useState(c.hora_largada?.slice(0, 5) ?? '')
+  async function guardar(v: string) {
+    setHora(v)
+    await supabase.from('competencias').update({ hora_largada: v || null }).eq('id', c.id)
+    onCambio()
+  }
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <label className="flex flex-col text-sm font-semibold">
+        Largada
+        <input type="time" value={hora} onChange={(e) => guardar(e.target.value)} className="min-h-11 rounded-xl border border-borde bg-superficie px-3 font-mono" />
+      </label>
+      <Link to={`/plan-carrera/${c.id}`} className="flex min-h-11 flex-1 items-center justify-center rounded-xl border border-azul px-3 text-sm font-semibold text-azul">
+        🧭 Armar plan de carrera
+      </Link>
+    </div>
   )
 }

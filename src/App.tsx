@@ -38,6 +38,13 @@ const MisZapatillas = pantalla(() => import('./pages/alumno/MisZapatillas'))
 const Agenda = pantalla(() => import('./pages/entrenador/Agenda'))
 const Alertas = pantalla(() => import('./pages/entrenador/Alertas'))
 const Emergencias = pantalla(() => import('./pages/entrenador/Emergencias'))
+const MiAnio = pantalla(() => import('./pages/alumno/MiAnio'))
+const ModoCarrera = pantalla(() => import('./pages/alumno/ModoCarrera'))
+const Desafios = pantalla(() => import('./pages/entrenador/Desafios'))
+const EventosEntrenador = pantalla(() => import('./pages/entrenador/EventosEntrenador'))
+const MensajeMasivo = pantalla(() => import('./pages/entrenador/MensajeMasivo'))
+const RankingEntrenador = pantalla(() => import('./pages/entrenador/RankingEntrenador'))
+const PlanCarrera = pantalla(() => import('./pages/entrenador/PlanCarrera'))
 const Herramientas = pantalla(() => import('./pages/entrenador/Herramientas'))
 const Anuncios = pantalla(() => import('./pages/entrenador/Anuncios'))
 const Grupos = pantalla(() => import('./pages/entrenador/Grupos'))
@@ -137,6 +144,11 @@ function RutasEntrenador({ miId }: { miId: string }) {
         <Route path="/agenda" element={<Agenda />} />
         <Route path="/alertas" element={<Alertas />} />
         <Route path="/emergencias" element={<Emergencias />} />
+        <Route path="/desafios" element={<Desafios />} />
+        <Route path="/eventos" element={<EventosEntrenador />} />
+        <Route path="/mensaje-masivo" element={<MensajeMasivo />} />
+        <Route path="/ranking" element={<RankingEntrenador />} />
+        <Route path="/plan-carrera/:id" element={<PlanCarrera />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="*" element={<Navigate to="/alumnos" replace />} />
       </Routes>
@@ -161,6 +173,8 @@ function RutasAlumno({ miId }: { miId: string }) {
         <Route path="/calculadora" element={<Calculadora />} />
         <Route path="/salud" element={<Salud />} />
         <Route path="/zapatillas" element={<MisZapatillas />} />
+        <Route path="/mi-anio" element={<MiAnio />} />
+        <Route path="/carrera/:id" element={<ModoCarrera />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="*" element={<Navigate to="/hoy" replace />} />
       </Routes>

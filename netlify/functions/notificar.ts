@@ -129,6 +129,35 @@ export default async (req: Request) => {
       break
     }
 
+    case 'evento': {
+      if (!esEntrenador) return json({ error: 'Sin permiso' }, 403)
+      const { data: ev } = await db.from('eventos').select('titulo, fecha, grupo_id').eq('id', String(p.evento_id)).maybeSingle()
+      if (!ev) break
+      let q = db.from('alumnos').select('profile_id').eq('activo', true).not('profile_id', 'is', null)
+      if (ev.grupo_id) q = q.eq('grupo_id', ev.grupo_id)
+      const { data: alumnos } = await q
+      const [a, m, d] = String(ev.fecha).split('-')
+      enviadas = await enviarA(db, (alumnos ?? []).map((x) => x.profile_id as string), {
+        titulo: `📅 ${corto(ev.titulo, 60)}`,
+        cuerpo: `Nuevo evento el ${d}/${m}/${a.slice(2)}. ¡Anotate en Carreras!`,
+        url: '/carreras',
+      })
+      break
+    }
+
+    case 'masivo': {
+      // Mensaje del entrenador a varios alumnos (ya quedó guardado en cada chat).
+      if (!esEntrenador) return json({ error: 'Sin permiso' }, 403)
+      const ids = ((p.alumno_ids ?? []) as string[]).slice(0, 500)
+      const { data: alumnos } = await db.from('alumnos').select('profile_id').in('id', ids).not('profile_id', 'is', null)
+      enviadas = await enviarA(db, (alumnos ?? []).map((x) => x.profile_id as string), {
+        titulo: '💬 Tu entrenador',
+        cuerpo: corto(String(p.texto ?? '')),
+        url: '/chat',
+      })
+      break
+    }
+
     default:
       return json({ error: 'Tipo de aviso desconocido' }, 400)
   }
