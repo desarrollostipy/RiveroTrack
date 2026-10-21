@@ -5,16 +5,21 @@ import { SesionProvider } from './lib/sesion'
 import App from './App'
 import './index.css'
 import { aplicarTema, seguirSistema } from './lib/tema'
+import { vigilarVersion } from './lib/version'
+import { ErrorPantalla } from './components/ErrorPantalla'
 
 aplicarTema()
 seguirSistema()
+vigilarVersion()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <SesionProvider>
-        <App />
-      </SesionProvider>
-    </BrowserRouter>
+    <ErrorPantalla>
+      <BrowserRouter>
+        <SesionProvider>
+          <App />
+        </SesionProvider>
+      </BrowserRouter>
+    </ErrorPantalla>
   </StrictMode>,
 )
