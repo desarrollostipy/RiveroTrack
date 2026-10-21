@@ -1,6 +1,7 @@
 // Reglas de negocio que se calculan en la app: estado de cada día,
 // alertas, cuotas, km planificados y estimación del ciclo.
 
+import { kmCorridos } from './extras'
 import { diaSemana, diasEntre, diasDeSemana, haceDias, nombreMes, sumarDias } from './fechas'
 import { formatoGs } from './formato'
 import type { Cuota, Resultado, SemanaCompleta, SesionCompleta, SesionPlan } from './tipos'
@@ -20,7 +21,7 @@ export function kmPlanificados(s: Pick<SesionPlan, 'distancia_km' | 'duracion_mi
 export function resumenSemana(sesiones: SesionCompleta[]) {
   const activas = sesiones.filter((s) => s.tipo !== 'descanso')
   const kmPlan = activas.reduce((t, s) => t + kmPlanificados(s).km, 0)
-  const kmReal = sesiones.reduce((t, s) => t + (s.registro?.distancia_km ?? 0), 0)
+  const kmReal = sesiones.reduce((t, s) => t + kmCorridos(s.registro), 0)
   const hechas = activas.filter((s) => s.registro).length
   return { kmPlan, kmReal, plan: activas.length, hechas, estimado: activas.some((s) => kmPlanificados(s).estimado) }
 }

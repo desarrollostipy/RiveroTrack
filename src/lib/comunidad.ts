@@ -36,7 +36,7 @@ export function avanceDesafio(d: Pick<Desafio, 'mes' | 'tipo' | 'meta'>, h: Hist
   const ses = h.sesiones.filter((s) => s.fecha >= d.mes && s.fecha < hasta)
   const actual =
     d.tipo === 'km'
-      ? ses.reduce((t, s) => t + (s.distancia_km ?? 0), 0)
+      ? ses.reduce((t, s) => t + s.km_total, 0)
       : d.tipo === 'sesiones'
         ? ses.length
         : d.tipo === 'dias'
@@ -52,16 +52,16 @@ const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'ju
 
 export function resumenAnio(h: Historial, anio: number) {
   const ses = h.sesiones.filter((s) => s.fecha.startsWith(String(anio)))
-  const km = ses.reduce((t, s) => t + (s.distancia_km ?? 0), 0)
+  const km = ses.reduce((t, s) => t + s.km_total, 0)
   const seg = ses.reduce((t, s) => t + (s.duracion_seg ?? 0), 0)
   const conRitmo = ses.filter((s) => s.distancia_km && s.duracion_seg)
   const kmR = conRitmo.reduce((t, s) => t + s.distancia_km!, 0)
   const porMes = MESES_CORTOS.map((m, i) => {
     const pref = `${anio}-${String(i + 1).padStart(2, '0')}`
-    return { mes: m, km: Math.round(ses.filter((s) => s.fecha.startsWith(pref)).reduce((t, s) => t + (s.distancia_km ?? 0), 0)) }
+    return { mes: m, km: Math.round(ses.filter((s) => s.fecha.startsWith(pref)).reduce((t, s) => t + s.km_total, 0)) }
   })
   const mejorMes = porMes.reduce((a, b) => (b.km > a.km ? b : a), porMes[0])
-  const larga = ses.reduce<(typeof ses)[number] | null>((a, s) => ((s.distancia_km ?? 0) > (a?.distancia_km ?? 0) ? s : a), null)
+  const larga = ses.reduce<(typeof ses)[number] | null>((a, s) => (s.km_total > (a?.km_total ?? 0) ? s : a), null)
   const carreras = h.carreras.filter((c) => c.fecha.startsWith(String(anio)) && c.resultado_tiempo_seg)
   return {
     anio,
@@ -72,7 +72,7 @@ export function resumenAnio(h: Historial, anio: number) {
     ritmo: kmR ? Math.round(conRitmo.reduce((t, s) => t + s.duracion_seg!, 0) / kmR) : null,
     porMes,
     mejorMes: mejorMes.km > 0 ? { nombre: MESES_LARGOS[MESES_CORTOS.indexOf(mejorMes.mes)], km: mejorMes.km } : null,
-    larga: larga?.distancia_km ? { km: larga.distancia_km, fecha: larga.fecha } : null,
+    larga: larga?.km_total ? { km: Math.round(larga.km_total * 10) / 10, fecha: larga.fecha } : null,
     carreras: carreras.length,
     grupales: h.asistencias.filter((a) => a.fecha.startsWith(String(anio))).length,
     racha: rachas(h).mejor,

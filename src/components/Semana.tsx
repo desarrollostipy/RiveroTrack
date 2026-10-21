@@ -1,3 +1,6 @@
+import type { ActividadExtra } from '../lib/extras'
+import { ChipExtra } from './ActividadesExtra'
+import { kmCorridos } from '../lib/extras'
 import { useEffect, useState } from 'react'
 import { cargarTipos } from '../lib/consultas'
 import { estadoDia, TEXTO_ESTADO, type EstadoDia } from '../lib/calculos'
@@ -105,29 +108,40 @@ export function TextoRegistro({ s }: { s: SesionCompleta }) {
     r.distancia_km ? `${formatoKm(r.distancia_km)} km` : null,
     r.ritmo_prom_seg ? `${formatoRitmo(r.ritmo_prom_seg)}/km` : null,
     !r.distancia_km && r.duracion_seg ? formatoDuracion(r.duracion_seg) : null,
+    kmCorridos(r) > Number(r.distancia_km ?? 0) ? `total ${formatoKm(kmCorridos(r))} km` : null,
   ].filter(Boolean)
   return <span className="font-mono text-sm text-ok">✓ {partes.join(' · ') || 'Registrada'}</span>
 }
 
-/** Lista de días de una semana con sus sesiones. */
+/**
+ * Lista de días de una semana con sus sesiones y las actividades extra.
+ * Con `onAgregarExtra` (alumno) aparece "+ Actividad extra" en los días hasta hoy.
+ */
 export function ListaDias({
   lunes,
   sesiones,
   hoy,
   accion,
   extra,
+  extras = [],
+  onAgregarExtra,
+  onBorrarExtra,
 }: {
   lunes: string
   sesiones: SesionCompleta[]
   hoy: string
   accion?: (s: SesionCompleta) => React.ReactNode
   extra?: (s: SesionCompleta) => React.ReactNode
+  extras?: ActividadExtra[]
+  onAgregarExtra?: (fecha: string) => void
+  onBorrarExtra?: (a: ActividadExtra) => void
 }) {
   const { tipo } = useTipos()
   return (
     <ul className="flex flex-col gap-2">
       {diasDeSemana(lunes).map((fecha, i) => {
         const delDia = sesiones.filter((s) => s.fecha === fecha)
+        const extrasDia = extras.filter((x) => x.fecha === fecha)
         const esHoy = fecha === hoy
         return (
           <li key={fecha} className={`rounded-2xl border bg-superficie p-3 ${esHoy ? 'border-azul ring-2 ring-azul/20' : 'border-borde'}`}>
@@ -135,7 +149,7 @@ export function ListaDias({
               {DIAS[i]} <span className="font-normal text-texto-2">{formatoFecha(fecha)}</span>
               {esHoy && <span className="ml-2 rounded-full bg-azul px-2 py-0.5 text-xs text-white">Hoy</span>}
             </p>
-            {delDia.length === 0 && <p className="text-sm text-texto-2">Descanso</p>}
+            {delDia.length === 0 && extrasDia.length === 0 && <p className="text-sm text-texto-2">Descanso</p>}
             <div className="flex flex-col divide-y divide-borde">
               {delDia.map((s) => {
                 const t = tipo(s.tipo)
@@ -161,6 +175,18 @@ export function ListaDias({
                 )
               })}
             </div>
+            {extrasDia.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1.5">
+                {extrasDia.map((x) => (
+                  <ChipExtra key={x.id} a={x} onBorrar={onBorrarExtra ? () => onBorrarExtra(x) : undefined} />
+                ))}
+              </div>
+            )}
+            {onAgregarExtra && fecha <= hoy && (
+              <button type="button" onClick={() => onAgregarExtra(fecha)} className="mt-2 min-h-9 text-sm font-semibold text-[#0F6E78]">
+                + Actividad extra
+              </button>
+            )}
           </li>
         )
       })}

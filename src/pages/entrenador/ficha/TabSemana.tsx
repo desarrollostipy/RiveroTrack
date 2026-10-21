@@ -7,12 +7,15 @@ import { hoyPY, lunesDe, rangoSemana, sumarDias } from '../../../lib/fechas'
 import { formatoKm } from '../../../lib/formato'
 import type { SemanaCompleta } from '../../../lib/tipos'
 import { ListaDias } from '../../../components/Semana'
+import { ChipExtra } from '../../../components/ActividadesExtra'
+import { useExtras } from '../../../lib/extras'
 import { AreaTexto, Boton, Cargando, MensajeError, MensajeOk, SelectorPeriodo, Tarjeta, Titulo, Vacio } from '../../../components/ui'
 
 export function TabSemana({ alumnoId }: { alumnoId: string }) {
   const hoy = hoyPY()
   const [lunes, setLunes] = useState(lunesDe(hoy))
   const [semana, setSemana] = useState<SemanaCompleta | null | undefined>(undefined)
+  const { extras } = useExtras(alumnoId, lunes, sumarDias(lunes, 6))
 
   const cargar = useCallback(async () => {
     setSemana(undefined)
@@ -64,10 +67,12 @@ export function TabSemana({ alumnoId }: { alumnoId: string }) {
 
       {semana === undefined && <Cargando />}
       {semana === null && <Vacio>No hay plan para esta semana.</Vacio>}
+      {semana === null && extras.map((x) => <ChipExtra key={x.id} a={x} />)}
       {semana && (
         <ListaDias
           lunes={lunes}
           sesiones={semana.sesiones}
+          extras={extras}
           hoy={hoy}
           accion={(s) =>
             s.registro && !s.evaluacion ? (

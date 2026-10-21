@@ -30,7 +30,7 @@ export function avanceMeta(m: Meta, h: Historial, hoy: string) {
   }
   if (m.tipo === 'km' && m.objetivo_km) {
     const hasta = m.fecha_limite && m.fecha_limite < hoy ? m.fecha_limite : hoy
-    const km = h.sesiones.filter((s) => s.fecha >= m.desde && s.fecha <= hasta).reduce((t, s) => t + (s.distancia_km ?? 0), 0)
+    const km = h.sesiones.filter((s) => s.fecha >= m.desde && s.fecha <= hasta).reduce((t, s) => t + s.km_total, 0)
     return { pct: Math.min(1, km / m.objetivo_km), cumplida: km >= m.objetivo_km, texto: `${formatoKm(km)} de ${formatoKm(m.objetivo_km)} km desde el ${formatoFecha(m.desde)}` }
   }
   return { pct: m.cumplida_at ? 1 : 0, cumplida: !!m.cumplida_at, texto: m.cumplida_at ? '¡Cumplida!' : 'La marcás vos cuando la logres' }

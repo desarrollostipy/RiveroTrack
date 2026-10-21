@@ -71,6 +71,10 @@ export type SesionReg = {
   fc_max: number | null
   splits: Split[]
   calzado_id?: string | null
+  calentamiento_km?: number | null
+  calentamiento_min?: number | null
+  afloje_km?: number | null
+  afloje_min?: number | null
   sensacion: number | null
   comentario_alumno: string | null
   datos_crudos?: { titulo?: string | null; desnivel_m?: number | null } | null

@@ -6,7 +6,8 @@ import type { Split } from './tipos'
 
 export type SesionHist = {
   fecha: string
-  distancia_km: number | null
+  distancia_km: number | null // parte principal (para el ritmo)
+  km_total: number // con calentamiento y afloje (para sumar km)
   duracion_seg: number | null
   ritmo_prom_seg: number | null
   fc_prom: number | null
@@ -30,7 +31,7 @@ export async function cargarHistorial(alumnoId: string): Promise<Historial> {
   const [s, v, m, c, a] = await Promise.all([
     supabase
       .from('sesiones_registradas')
-      .select('fecha, distancia_km, duracion_seg, ritmo_prom_seg, fc_prom, splits, datos_crudos, sesiones_planificadas(tipo, resumen)')
+      .select('*, sesiones_planificadas(tipo, resumen)')
       .eq('alumno_id', alumnoId)
       .order('fecha'),
     supabase.from('v_resumen_semanal').select('semana_inicio, km_plan, km_real, sesiones_plan, sesiones_hechas, cumplimiento_pct').eq('alumno_id', alumnoId).order('semana_inicio'),
@@ -45,6 +46,7 @@ export async function cargarHistorial(alumnoId: string): Promise<Historial> {
       return {
         fecha: x.fecha,
         distancia_km: x.distancia_km === null ? null : Number(x.distancia_km),
+        km_total: Number(x.distancia_km ?? 0) + Number(x.calentamiento_km ?? 0) + Number(x.afloje_km ?? 0),
         duracion_seg: x.duracion_seg,
         ritmo_prom_seg: x.ritmo_prom_seg,
         fc_prom: x.fc_prom,
@@ -84,11 +86,12 @@ const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', '
 export function calcularRecords(h: Historial): Record_[] {
   const r: Record_[] = []
   const conDist = h.sesiones.filter((s) => (s.distancia_km ?? 0) > 0)
+  const conKm = h.sesiones.filter((s) => s.km_total > 0)
   const max = <T,>(xs: T[], f: (x: T) => number) => xs.reduce<T | null>((m, x) => (m === null || f(x) > f(m) ? x : m), null)
   const min = <T,>(xs: T[], f: (x: T) => number) => xs.reduce<T | null>((m, x) => (m === null || f(x) < f(m) ? x : m), null)
 
-  const larga = max(conDist, (s) => s.distancia_km!)
-  if (larga) r.push({ clave: 'distancia', icono: '🛣️', titulo: 'Distancia más larga', valor: `${km1(larga.distancia_km!)} km`, detalle: larga.resumen ?? 'Sesión', fecha: larga.fecha, numero: larga.distancia_km! })
+  const larga = max(conKm, (s) => s.km_total)
+  if (larga) r.push({ clave: 'distancia', icono: '🛣️', titulo: 'Distancia más larga', valor: `${km1(larga.km_total)} km`, detalle: larga.resumen ?? 'Sesión', fecha: larga.fecha, numero: larga.km_total })
 
   const rapida = min(conDist.filter((s) => s.distancia_km! >= 3 && s.ritmo_prom_seg), (s) => s.ritmo_prom_seg!)
   if (rapida) r.push({ clave: 'ritmo', icono: '⚡', titulo: 'Mejor ritmo (3 km o más)', valor: `${mmss(rapida.ritmo_prom_seg!)}/km`, detalle: `${km1(rapida.distancia_km!)} km`, fecha: rapida.fecha, numero: rapida.ritmo_prom_seg! })
@@ -104,7 +107,7 @@ export function calcularRecords(h: Historial): Record_[] {
   if (semana && semana.km_real > 0) r.push({ clave: 'semana', icono: '📅', titulo: 'Semana con más km', valor: `${km1(semana.km_real)} km`, detalle: `Semana del ${ddmm(semana.semana_inicio)}`, fecha: semana.semana_inicio, numero: semana.km_real })
 
   const porMes = new Map<string, number>()
-  for (const s of conDist) porMes.set(s.fecha.slice(0, 7), (porMes.get(s.fecha.slice(0, 7)) ?? 0) + s.distancia_km!)
+  for (const s of conKm) porMes.set(s.fecha.slice(0, 7), (porMes.get(s.fecha.slice(0, 7)) ?? 0) + s.km_total)
   const mes = max([...porMes.entries()], (x) => x[1])
   if (mes) r.push({ clave: 'mes', icono: '🗓️', titulo: 'Mes con más km', valor: `${km1(mes[1])} km`, detalle: `${MESES[Number(mes[0].slice(5)) - 1]} ${mes[0].slice(0, 4)}`, fecha: `${mes[0]}-01`, numero: mes[1] })
 
@@ -150,13 +153,13 @@ export function calcularRetos(h: Historial): { semana: Reto[]; mes: Reto[] } {
   const lunes = lunesDe(hoy)
   const mes = primerDiaMes(hoy)
   const est = h.semanas.find((s) => s.semana_inicio === lunes)
-  const kmMes = h.sesiones.filter((s) => s.fecha >= mes).reduce((t, s) => t + (s.distancia_km ?? 0), 0)
+  const kmMes = h.sesiones.filter((s) => s.fecha >= mes).reduce((t, s) => t + s.km_total, 0)
   const sesMes = h.sesiones.filter((s) => s.fecha >= mes).length
   // Meta mensual a medida: un 10% más que el promedio de los últimos 3 meses (mínimo 40 km).
   const prev = [1, 2, 3].map((k) => {
     const desde = sumarMeses(mes, -k)
     const hasta = sumarMeses(mes, -k + 1)
-    return h.sesiones.filter((s) => s.fecha >= desde && s.fecha < hasta).reduce((t, s) => t + (s.distancia_km ?? 0), 0)
+    return h.sesiones.filter((s) => s.fecha >= desde && s.fecha < hasta).reduce((t, s) => t + s.km_total, 0)
   })
   const promedio = prev.reduce((a, b) => a + b, 0) / 3
   const metaKmMes = Math.max(40, Math.round((promedio * 1.1) / 10) * 10)
@@ -186,7 +189,7 @@ export function resumenMeses(h: Historial, cuantos = 6) {
     const desde = sumarMeses(mes, -(cuantos - 1 - i))
     const hasta = sumarMeses(desde, 1)
     const ses = h.sesiones.filter((s) => s.fecha >= desde && s.fecha < hasta)
-    const km = ses.reduce((t, s) => t + (s.distancia_km ?? 0), 0)
+    const km = ses.reduce((t, s) => t + s.km_total, 0)
     const seg = ses.filter((s) => s.distancia_km && s.duracion_seg).reduce((t, s) => t + s.duracion_seg!, 0)
     const kmT = ses.filter((s) => s.distancia_km && s.duracion_seg).reduce((t, s) => t + s.distancia_km!, 0)
     return { mes: MESES[Number(desde.slice(5, 7)) - 1].slice(0, 3), km: Math.round(km * 10) / 10, sesiones: ses.length, ritmo: kmT ? Math.round(seg / kmT) : null }

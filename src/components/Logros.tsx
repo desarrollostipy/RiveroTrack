@@ -10,8 +10,8 @@ type Logro = { icono: string; nombre: string; detalle: string; logrado: boolean;
 
 export function calcularLogros(h: Historial) {
   const n = h.sesiones.length
-  const km = h.sesiones.reduce((t, s) => t + (s.distancia_km ?? 0), 0)
-  const largo = Math.max(0, ...h.sesiones.map((s) => s.distancia_km ?? 0))
+  const km = h.sesiones.reduce((t, s) => t + s.km_total, 0)
+  const largo = Math.max(0, ...h.sesiones.map((s) => s.km_total))
   const corridas = h.carreras.filter((c) => c.resultado_tiempo_seg)
   const objetivo = corridas.some((c) => c.tiempo_objetivo_seg && c.resultado_tiempo_seg! <= c.tiempo_objetivo_seg)
   const r = rachas(h)

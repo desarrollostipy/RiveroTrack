@@ -54,6 +54,10 @@ export default function RegistrarSesion() {
   const [tiempo, setTiempo] = useState('')
   const [fcProm, setFcProm] = useState('')
   const [fcMax, setFcMax] = useState('')
+  const [calKm, setCalKm] = useState('')
+  const [calMin, setCalMin] = useState('')
+  const [aflKm, setAflKm] = useState('')
+  const [aflMin, setAflMin] = useState('')
   const [sensacion, setSensacion] = useState<number | null>(null)
   const [molestia, setMolestia] = useState<Molestia | null>(null)
   const [comentario, setComentario] = useState('')
@@ -83,6 +87,11 @@ export default function RegistrarSesion() {
         setTiempo(reg.duracion_seg ? formatoDuracion(reg.duracion_seg) : '')
         setFcProm(reg.fc_prom ? String(reg.fc_prom) : '')
         setFcMax(reg.fc_max ? String(reg.fc_max) : '')
+        const txt = (n: number | null | undefined) => (n ? String(n).replace('.', ',') : '')
+        setCalKm(txt(reg.calentamiento_km))
+        setCalMin(txt(reg.calentamiento_min))
+        setAflKm(txt(reg.afloje_km))
+        setAflMin(txt(reg.afloje_min))
         setSensacion(reg.sensacion)
         setComentario(reg.comentario_alumno ?? '')
         setCalzado(reg.calzado_id ?? null)
@@ -98,6 +107,10 @@ export default function RegistrarSesion() {
   const calzadoElegido = calzado === undefined ? (enUso.find((z) => z.principal)?.id ?? null) : calzado
 
   const km = leerNumero(distancia)
+  // Calentamiento y afloje: suman km, pero no cambian el ritmo de la parte principal.
+  const extraKm = (t: string) => (t.trim() ? leerNumero(t) : null)
+  const extraMin = (t: string) => (t.trim() ? leerNumero(t) : null)
+  const totalKm = (km ?? 0) + (extraKm(calKm) ?? 0) + (extraKm(aflKm) ?? 0)
   const seg = leerDuracion(tiempo)
   const ritmo = km && seg ? Math.round(seg / km) : null
 
@@ -121,6 +134,10 @@ export default function RegistrarSesion() {
     if (!km || km <= 0) return setError('Ingresá la distancia.')
     if (!seg || seg <= 0) return setError('Ingresá el tiempo, por ejemplo 52:30 o 1:05:10.')
     if (!sensacion) return setError('Elegí cómo te sentiste.')
+    for (const [v, nombre] of [[calKm, 'los km del calentamiento'], [calMin, 'los minutos del calentamiento'], [aflKm, 'los km del afloje'], [aflMin, 'los minutos del afloje']] as const) {
+      const n = v.trim() ? leerNumero(v) : null
+      if (v.trim() && (!n || n <= 0)) return setError(`Revisá ${nombre}: tiene que ser un número mayor a cero.`)
+    }
     // El link se guarda siempre que haya uno, aunque no se haya podido leer:
     // el entrenador lo abre para ver la actividad completa.
     const url = linkGarmin(link)
@@ -134,6 +151,10 @@ export default function RegistrarSesion() {
       ritmo_prom_seg: ritmo,
       fc_prom: leerNumero(fcProm),
       fc_max: leerNumero(fcMax),
+      calentamiento_km: extraKm(calKm) ? Math.round(extraKm(calKm)! * 100) / 100 : null,
+      calentamiento_min: extraMin(calMin) ? Math.round(extraMin(calMin)!) : null,
+      afloje_km: extraKm(aflKm) ? Math.round(extraKm(aflKm)! * 100) / 100 : null,
+      afloje_min: extraMin(aflMin) ? Math.round(extraMin(aflMin)!) : null,
       splits: existente?.splits ?? [],
       datos_crudos: garmin ? garmin.datos_crudos : undefined,
       sensacion,
@@ -193,7 +214,7 @@ export default function RegistrarSesion() {
             imagenDeSesion({
               estilo,
               planKm: sesion.distancia_km,
-              registro: { fecha: sesion.fecha, distancia_km: km, duracion_seg: seg, ritmo_prom_seg: ritmo, fc_prom: leerNumero(fcProm), sensacion, splits: garmin?.splits ?? existente?.splits ?? [], datos_crudos: garmin ? { desnivel_m: garmin.desnivel_m } : existente?.datos_crudos },
+              registro: { fecha: sesion.fecha, distancia_km: km, calentamiento_km: extraKm(calKm), afloje_km: extraKm(aflKm), duracion_seg: seg, ritmo_prom_seg: ritmo, fc_prom: leerNumero(fcProm), sensacion, splits: garmin?.splits ?? existente?.splits ?? [], datos_crudos: garmin ? { desnivel_m: garmin.desnivel_m } : existente?.datos_crudos },
               tipo: tipo(sesion.tipo).nombre,
               titulo: sesion.resumen || tipo(sesion.tipo).nombre,
               nombre: alumno.nombre,
@@ -273,7 +294,7 @@ export default function RegistrarSesion() {
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <Campo id="reg-km" label="Distancia (km)" inputMode="decimal" value={distancia} onChange={(e) => setDistancia(e.target.value)} />
+        <Campo id="reg-km" label="Distancia principal (km)" inputMode="decimal" value={distancia} onChange={(e) => setDistancia(e.target.value)} />
         <Campo id="reg-tiempo" label="Tiempo" placeholder="52:30" value={tiempo} onChange={(e) => setTiempo(e.target.value)} />
         <Campo id="reg-fcp" label="FC promedio" inputMode="numeric" value={fcProm} onChange={(e) => setFcProm(e.target.value.replace(/\D/g, ''))} />
         <Campo id="reg-fcm" label="FC máxima" inputMode="numeric" value={fcMax} onChange={(e) => setFcMax(e.target.value.replace(/\D/g, ''))} />
@@ -281,6 +302,22 @@ export default function RegistrarSesion() {
       <p className="text-sm" aria-live="polite">
         Ritmo: <strong className="font-mono">{ritmo ? `${formatoRitmo(ritmo)}/km` : '—'}</strong> <span className="text-texto-2">(se calcula solo)</span>
       </p>
+
+      <details className="rounded-2xl border border-borde bg-superficie p-3" open={!!(calKm || calMin || aflKm || aflMin)}>
+        <summary className="cursor-pointer font-semibold">🔥 Calentamiento y 🧊 afloje <span className="font-normal text-texto-2">(opcional)</span></summary>
+        <p className="mt-1 text-xs text-texto-2">Si los hiciste aparte de la parte principal, cargalos acá: suman a tus km de la semana, pero no cambian el ritmo de la sesión.</p>
+        <div className="mt-2 grid grid-cols-2 gap-3">
+          <Campo id="reg-cal-km" label="Calentamiento (km)" inputMode="decimal" value={calKm} onChange={(e) => setCalKm(e.target.value)} />
+          <Campo id="reg-cal-min" label="Calentamiento (min)" inputMode="numeric" value={calMin} onChange={(e) => setCalMin(e.target.value.replace(/\D/g, ''))} />
+          <Campo id="reg-afl-km" label="Afloje (km)" inputMode="decimal" value={aflKm} onChange={(e) => setAflKm(e.target.value)} />
+          <Campo id="reg-afl-min" label="Afloje (min)" inputMode="numeric" value={aflMin} onChange={(e) => setAflMin(e.target.value.replace(/\D/g, ''))} />
+        </div>
+        {totalKm > (km ?? 0) && (
+          <p className="mt-2 text-sm">
+            Total corrido: <strong className="font-mono">{formatoKm(totalKm)} km</strong>
+          </p>
+        )}
+      </details>
 
       <Opciones label="¿Cómo te sentiste?" valor={sensacion} onChange={setSensacion} opciones={SENSACIONES} />
 

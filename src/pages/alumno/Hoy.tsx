@@ -15,6 +15,8 @@ import { MiCiclo } from './MiCiclo'
 import { AnunciosAlumno, InvitarNotificaciones } from '../../components/AnunciosAlumno'
 import { BienestarHoy } from '../../components/salud/Bienestar'
 import { AvisoZapatillas } from '../../components/salud/Zapatillas'
+import { ChipExtra, FormExtra } from '../../components/ActividadesExtra'
+import { useExtras } from '../../lib/extras'
 
 type Feedback = Evaluacion & { sesiones_planificadas: { fecha: string; resumen: string | null; tipo: string } | null }
 
@@ -128,6 +130,7 @@ export default function Hoy() {
                 )
               })}
             </div>
+            <ExtrasDeHoy alumnoId={alumno.id} />
           </Tarjeta>
         </>
       )}
@@ -214,6 +217,24 @@ function AvisoCuota({ cuotas, cuotaMensual, dia }: { cuotas: (Cuota & { pagos: P
           <p className="mt-2 text-texto-2">Cuando tu entrenador registre el pago, se actualiza acá.</p>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Actividades extra de hoy (natación, bici…) y el botón para sumar otra. */
+function ExtrasDeHoy({ alumnoId }: { alumnoId: string }) {
+  const hoy = hoyPY()
+  const { extras, recargarExtras } = useExtras(alumnoId, hoy, hoy)
+  const [abierta, setAbierta] = useState(false)
+  return (
+    <div className="mt-3 flex flex-col gap-1.5 border-t border-borde pt-3">
+      {extras.map((x) => (
+        <ChipExtra key={x.id} a={x} />
+      ))}
+      <button type="button" onClick={() => setAbierta(true)} className="self-start text-sm font-semibold text-[#0F6E78]">
+        + Actividad extra (natación, bici, gimnasio…)
+      </button>
+      <FormExtra alumnoId={alumnoId} fecha={hoy} abierta={abierta} onCerrar={() => setAbierta(false)} onListo={recargarExtras} />
     </div>
   )
 }

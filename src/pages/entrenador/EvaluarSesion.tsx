@@ -104,6 +104,16 @@ export default function EvaluarSesion() {
               {r.datos_crudos?.desnivel_m ? <p className="text-xs text-texto-2">↑ {r.datos_crudos.desnivel_m} m de desnivel</p> : null}
               {r.distancia_km && <p className="text-base font-semibold">{formatoKm(r.distancia_km)} km</p>}
               {r.duracion_seg && <p>{formatoDuracion(r.duracion_seg)}</p>}
+              {(r.calentamiento_km || r.calentamiento_min) && (
+                <p className="text-sm text-texto-2">
+                  🔥 Calentamiento {[r.calentamiento_km ? `${formatoKm(r.calentamiento_km)} km` : null, r.calentamiento_min ? `${r.calentamiento_min} min` : null].filter(Boolean).join(' · ')}
+                </p>
+              )}
+              {(r.afloje_km || r.afloje_min) && (
+                <p className="text-sm text-texto-2">
+                  🧊 Afloje {[r.afloje_km ? `${formatoKm(r.afloje_km)} km` : null, r.afloje_min ? `${r.afloje_min} min` : null].filter(Boolean).join(' · ')}
+                </p>
+              )}
               {r.ritmo_prom_seg && (
                 <p className={claseRitmo(compararRitmo(r.ritmo_prom_seg, s.ritmo_min_seg, s.ritmo_max_seg))}>{formatoRitmo(r.ritmo_prom_seg)}/km</p>
               )}

@@ -9,6 +9,7 @@ import type { EntrenamientoGrupal, SemanaCompleta, SesionCompleta } from '../../
 import { Pantalla } from '../../components/Pantalla'
 import { useTipos } from '../../components/Semana'
 import { EmojisBienestar } from '../../components/salud/Bienestar'
+import { DEPORTES, kmCorridos, nombreActividad, type ActividadExtra } from '../../lib/extras'
 import { Avatar, Cargando, EtiquetaTipo, SelectorPeriodo, Tarjeta, Vacio } from '../../components/ui'
 
 type Fila = { alumnoId: string; nombre: string; avatar: string | null; sesiones: SesionCompleta[] }
@@ -23,6 +24,7 @@ export default function Agenda() {
   const [bienestar, setBienestar] = useState<Bienestar[]>([])
   const [molestias, setMolestias] = useState<Molestia[]>([])
   const [grupales, setGrupales] = useState<EntrenamientoGrupal[]>([])
+  const [extras, setExtras] = useState<ActividadExtra[]>([])
   const { tipo } = useTipos()
   const lunes = lunesDe(dia)
 
@@ -47,9 +49,11 @@ export default function Agenda() {
     Promise.all([
       supabase.from('bienestar_diario').select('*').eq('fecha', dia),
       supabase.from('entrenamientos_grupales').select('*').eq('fecha', dia).order('hora'),
-    ]).then(([b, g]) => {
+      supabase.from('actividades_extra').select('*').eq('fecha', dia),
+    ]).then(([b, g, x]) => {
       setBienestar((b.data ?? []) as Bienestar[])
       setGrupales((g.data ?? []) as EntrenamientoGrupal[])
+      setExtras((x.data ?? []) as ActividadExtra[])
     })
   }, [dia])
 
@@ -104,6 +108,22 @@ export default function Agenda() {
         </Link>
       ))}
 
+      {(() => {
+        // Quienes solo hicieron una actividad extra (sin sesión planificada ese día).
+        const sueltas = extras.filter((x) => !filas.some((f) => f.alumnoId === x.alumno_id))
+        if (!sueltas.length) return null
+        return (
+          <Tarjeta>
+            <p className="mb-1 font-semibold">Actividades extra</p>
+            {sueltas.map((x) => (
+              <p key={x.id} className="text-sm">
+                {DEPORTES[x.deporte].emoji} <b>{alumnos.find((a) => a.id === x.alumno_id)?.nombre ?? 'Alumno'}</b> · {nombreActividad(x)} · {x.duracion_min} min
+              </p>
+            ))}
+          </Tarjeta>
+        )
+      })()}
+
       {filas.length === 0 ? (
         <Vacio>Nadie tiene sesiones planificadas para este día.</Vacio>
       ) : (
@@ -133,7 +153,7 @@ export default function Agenda() {
                             <span className="truncate">{s.resumen || t.nombre}</span>
                             {s.registro ? (
                               <span className="font-mono font-semibold text-ok">
-                                ✓ {s.registro.distancia_km ? `${formatoKm(s.registro.distancia_km)} km` : 'hecho'}
+                                ✓ {kmCorridos(s.registro) ? `${formatoKm(kmCorridos(s.registro))} km` : 'hecho'}
                                 {s.registro.ritmo_prom_seg ? ` · ${formatoRitmo(s.registro.ritmo_prom_seg)}` : ''}
                               </span>
                             ) : (
@@ -142,6 +162,13 @@ export default function Agenda() {
                           </div>
                         )
                       })}
+                      {extras
+                        .filter((x) => x.alumno_id === f.alumnoId)
+                        .map((x) => (
+                          <p key={x.id} className="mt-1 text-sm text-[#0F6E78]">
+                            {DEPORTES[x.deporte].emoji} {nombreActividad(x)} · {x.duracion_min} min
+                          </p>
+                        ))}
                       {dolor && (
                         <p className={`mt-1 text-sm font-semibold ${dolor.intensidad >= 7 ? 'text-mal' : 'text-[#9A6B00]'}`}>
                           🩹 {textoMolestia(dolor)} · {dolor.intensidad}/10

@@ -10,8 +10,11 @@ import { Pantalla } from '../../components/Pantalla'
 import { AgregarCalendario } from '../../components/AgregarCalendario'
 import { BotonCompartir, imagenDeSesion } from '../../components/Compartir'
 import { tarjetaLista } from '../../lib/tarjetas'
+import { kmCorridos, useExtras, type ActividadExtra } from '../../lib/extras'
+import { ChipExtra, FormExtra } from '../../components/ActividadesExtra'
+import { supabase } from '../../lib/supabase'
 import { ListaDias, useTipos } from '../../components/Semana'
-import { Cargando, Indicador, SelectorPeriodo, Tarjeta, Vacio } from '../../components/ui'
+import { Boton, Cargando, Indicador, SelectorPeriodo, Tarjeta, Vacio } from '../../components/ui'
 
 export default function MiSemana() {
   const { alumno } = useMiAlumno()
@@ -19,6 +22,14 @@ export default function MiSemana() {
   const hoy = hoyPY()
   const [lunes, setLunes] = useState(lunesDe(hoy))
   const [semana, setSemana] = useState<SemanaCompleta | null | undefined>(undefined)
+  const { extras, recargarExtras } = useExtras(alumno.id, lunes, sumarDias(lunes, 6))
+  const [extraEn, setExtraEn] = useState<string | null>(null)
+
+  async function borrarExtra(a: ActividadExtra) {
+    if (!confirm('¿Borrar esta actividad?')) return
+    await supabase.from('actividades_extra').delete().eq('id', a.id)
+    recargarExtras()
+  }
 
   useEffect(() => {
     const consulta = { alumnoId: alumno.id, desde: lunes, hasta: lunes }
@@ -46,6 +57,16 @@ export default function MiSemana() {
       />
       {semana === undefined && <Cargando />}
       {semana === null && <Vacio>{lunes > semanaActual ? 'Tu entrenador todavía no publicó este plan.' : 'No hay plan publicado para esta semana.'}</Vacio>}
+      {semana === null && lunes <= semanaActual && (
+        <>
+          {extras.map((x) => (
+            <ChipExtra key={x.id} a={x} onBorrar={() => borrarExtra(x)} />
+          ))}
+          <Boton variante="borde" onClick={() => setExtraEn(lunes === semanaActual ? hoy : sumarDias(lunes, 6))}>
+            + Actividad extra
+          </Boton>
+        </>
+      )}
       {semana && r && (
         <>
           <div className="grid grid-cols-2 gap-2">
@@ -70,7 +91,7 @@ export default function MiSemana() {
                       titulo: 'Km por día',
                       barras: Array.from({ length: 7 }, (_, i) => {
                         const fecha = sumarDias(lunes, i)
-                        const km = semana.sesiones.filter((s) => s.fecha === fecha).reduce((t, s) => t + (s.registro?.distancia_km ?? 0), 0)
+                        const km = semana.sesiones.filter((s) => s.fecha === fecha).reduce((t, s) => t + kmCorridos(s.registro), 0)
                         return { etiqueta: DIAS[i].slice(0, 2), valor: km, texto: km ? formatoKm(km) : '' }
                       }),
                     },
@@ -90,6 +111,9 @@ export default function MiSemana() {
             lunes={lunes}
             sesiones={semana.sesiones}
             hoy={hoy}
+            extras={extras}
+            onAgregarExtra={setExtraEn}
+            onBorrarExtra={borrarExtra}
             accion={(s) =>
               // Se puede registrar hoy y los días anteriores de la semana que falten.
               s.fecha <= hoy && s.fecha >= sumarDias(hoy, -6) ? (
@@ -121,6 +145,7 @@ export default function MiSemana() {
           />
         </>
       )}
+      <FormExtra alumnoId={alumno.id} fecha={extraEn ?? hoy} abierta={extraEn !== null} onCerrar={() => setExtraEn(null)} onListo={recargarExtras} />
     </Pantalla>
   )
 }

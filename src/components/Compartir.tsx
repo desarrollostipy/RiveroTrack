@@ -3,13 +3,14 @@ import { compartirImagen, ESTILOS, FORMATOS, tarjetaSesion, type Dato, type Dise
 import { DIAS, diaSemana } from '../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo } from '../lib/formato'
 import type { SesionReg } from '../lib/tipos'
+import { kmCorridos } from '../lib/extras'
 import { Boton, Hoja, MensajeOk, Pestanas } from './ui'
 
 const SENSACION = ['', '😣 Muy mal', '😕 Mal', '🙂 Normal', '😄 Bien', '🤩 Excelente']
 
 /** Arma la imagen de un entrenamiento registrado. */
 export function imagenDeSesion(o: {
-  registro: Pick<SesionReg, 'fecha' | 'distancia_km' | 'duracion_seg' | 'ritmo_prom_seg' | 'fc_prom' | 'sensacion' | 'splits'> & { datos_crudos?: { desnivel_m?: number | null } | null }
+  registro: Pick<SesionReg, 'fecha' | 'distancia_km' | 'duracion_seg' | 'ritmo_prom_seg' | 'fc_prom' | 'sensacion' | 'splits'> & { datos_crudos?: { desnivel_m?: number | null } | null; calentamiento_km?: number | null; afloje_km?: number | null }
   tipo: string
   titulo: string
   nombre: string
@@ -23,6 +24,8 @@ export function imagenDeSesion(o: {
   if (r.fc_prom) datos.push({ etiqueta: 'Pulso prom.', valor: `${r.fc_prom} ppm` })
   if (r.datos_crudos?.desnivel_m) datos.push({ etiqueta: 'Desnivel', valor: `${r.datos_crudos.desnivel_m} m` })
   if (r.sensacion) datos.push({ etiqueta: 'Sensación', valor: SENSACION[r.sensacion] })
+  const total = kmCorridos(r)
+  if (r.distancia_km && total > Number(r.distancia_km)) datos.push({ etiqueta: 'Total corrido', valor: `${formatoKm(total)} km` })
   return tarjetaSesion({
     estilo: o.estilo,
     nombre: o.nombre,
