@@ -2,6 +2,9 @@ import { Link } from 'react-router'
 import { Pantalla } from '../../components/Pantalla'
 
 const HERRAMIENTAS = [
+  { a: '/agenda', icono: '📆', titulo: 'Agenda del día', texto: 'Quién entrena hoy y quién ya registró' },
+  { a: '/alertas', icono: '🔔', titulo: 'Alertas', texto: 'Molestias, bienestar bajo, carga y cuotas' },
+  { a: '/emergencias', icono: '🆘', titulo: 'Emergencias', texto: 'Contactos y datos médicos de todos' },
   { a: '/anuncios', icono: '📢', titulo: 'Anuncios', texto: 'Avisos para todo el grupo o para un grupo' },
   { a: '/asistencia', icono: '📍', titulo: 'Asistencia', texto: 'Quién vino a los entrenamientos grupales' },
   { a: '/grupos', icono: '👥', titulo: 'Grupos', texto: 'Principiantes, Grupo 21K… para planes y anuncios' },

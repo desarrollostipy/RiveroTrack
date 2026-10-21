@@ -10,6 +10,7 @@ import { Pantalla } from '../../components/Pantalla'
 import { Logros, useHistorial } from '../../components/Logros'
 import { Comparar, Records, Retos } from '../../components/Records'
 import { AsistenciaMes } from '../../components/AsistenciaMes'
+import { Metas } from '../../components/salud/Metas'
 import { Link } from 'react-router'
 import { cargarEvolucion, GraficoKm, indicadores } from '../../components/EvolucionAlumno'
 import { Boton, Campo, Cargando, Indicador, MensajeError, Pestanas, Tarjeta, Titulo, Vacio } from '../../components/ui'
@@ -64,6 +65,7 @@ export default function Progreso() {
 
       {tab === 'logros' && (
         <>
+          {h && <Metas alumnoId={alumno.id} h={h} />}
           {h ? <Retos h={h} nombre={alumno.nombre} /> : <Cargando />}
           <Logros alumnoId={alumno.id} nombre={alumno.nombre} />
           <AsistenciaMes alumnoId={alumno.id} />

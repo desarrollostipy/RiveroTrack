@@ -14,6 +14,7 @@ import { useNoLeidos } from '../../lib/chat'
 import { useGrupos } from '../../lib/grupos'
 import { EtiquetaGrupo } from './Grupos'
 import type { Perfil } from '../../lib/sesion'
+import { cargarAlertas } from '../../lib/alertas'
 
 type Filtro = 'todos' | 'por_evaluar' | 'alertas'
 
@@ -32,6 +33,11 @@ export default function Alumnos() {
   const [filtro, setFiltro] = useState<Filtro>('todos')
   const [solicitudes, setSolicitudes] = useState(0)
   const [carrerasPendientes, setCarrerasPendientes] = useState(0)
+  const [avisos, setAvisos] = useState<{ rojas: number; total: number } | null>(null)
+
+  useEffect(() => {
+    cargarAlertas().then(({ alertas }) => setAvisos({ rojas: alertas.filter((a) => a.nivel === 'rojo').length, total: alertas.length }))
+  }, [])
 
   const cargar = useCallback(async () => {
     try {
@@ -119,6 +125,26 @@ export default function Alumnos() {
       }
     >
       <MensajeError>{error}</MensajeError>
+      <div className="grid grid-cols-2 gap-2">
+        <Link to="/agenda" className="flex min-h-14 items-center gap-2 rounded-2xl border border-borde bg-superficie px-3 font-semibold hover:border-azul">
+          <span className="text-2xl" aria-hidden="true">
+            📆
+          </span>
+          Agenda de hoy
+        </Link>
+        <Link
+          to="/alertas"
+          className={`flex min-h-14 items-center gap-2 rounded-2xl px-3 font-semibold ${avisos?.rojas ? 'bg-mal text-white' : 'border border-borde bg-superficie hover:border-azul'}`}
+        >
+          <span className="text-2xl" aria-hidden="true">
+            🔔
+          </span>
+          <span>
+            Alertas
+            {avisos && avisos.total > 0 && <span className="block text-xs font-normal opacity-90">{avisos.rojas ? `${avisos.rojas} para atender hoy` : `${avisos.total} para mirar`}</span>}
+          </span>
+        </Link>
+      </div>
       {solicitudes > 0 && (
         <Link
           to="/solicitudes"

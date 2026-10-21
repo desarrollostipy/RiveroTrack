@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { compartirImagen, ESTILOS, tarjetaSesion, type Dato, type Estilo } from '../lib/tarjetas'
+import { compartirImagen, ESTILOS, FORMATOS, tarjetaSesion, type Dato, type Diseno, type Estilo, type Formato } from '../lib/tarjetas'
 import { DIAS, diaSemana } from '../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo } from '../lib/formato'
 import type { SesionReg } from '../lib/tipos'
@@ -14,7 +14,7 @@ export function imagenDeSesion(o: {
   titulo: string
   nombre: string
   planKm?: number | null
-  estilo: Estilo
+  estilo: Diseno
 }) {
   const r = o.registro
   const datos: Dato[] = []
@@ -37,14 +37,26 @@ export function imagenDeSesion(o: {
   })
 }
 
-function estiloGuardado(): Estilo {
+function leer(clave: string) {
   try {
-    const e = localStorage.getItem('rivero-estilo-imagen')
-    if (e === 'azul' || e === 'blanco' || e === 'transparente') return e
+    return localStorage.getItem(clave)
+  } catch {
+    return null
+  }
+}
+function guardar(clave: string, valor: string) {
+  try {
+    localStorage.setItem(clave, valor)
   } catch {
     /* sin almacenamiento */
   }
-  return 'azul'
+}
+function estiloGuardado(): Estilo {
+  const e = leer('rivero-estilo-imagen')
+  return e === 'blanco' || e === 'transparente' ? e : 'azul'
+}
+function formatoGuardado(): Formato {
+  return leer('rivero-formato-imagen') === 'publicacion' ? 'publicacion' : 'historia'
 }
 
 /**
@@ -59,7 +71,7 @@ export function BotonCompartir({
   variante = 'borde',
   className = '',
 }: {
-  generar: (estilo: Estilo) => Promise<Blob>
+  generar: (diseno: Diseno) => Promise<Blob>
   nombreArchivo: string
   texto?: string
   etiqueta?: string
@@ -68,6 +80,7 @@ export function BotonCompartir({
 }) {
   const [abierta, setAbierta] = useState(false)
   const [estilo, setEstilo] = useState<Estilo>(estiloGuardado)
+  const [formato, setFormato] = useState<Formato>(formatoGuardado)
   const [blob, setBlob] = useState<Blob | null>(null)
   const [url, setUrl] = useState('')
   const [generando, setGenerando] = useState(false)
@@ -85,7 +98,7 @@ export function BotonCompartir({
     if (!abierta) return
     let vigente = true
     setGenerando(true)
-    generar(estilo)
+    generar({ fondo: estilo, formato })
       .then((b) => {
         if (!vigente) return
         setBlob(b)
@@ -96,16 +109,18 @@ export function BotonCompartir({
       vigente = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [abierta, estilo])
+  }, [abierta, estilo, formato])
 
   function elegir(e: Estilo) {
     setEstilo(e)
     setAviso('')
-    try {
-      localStorage.setItem('rivero-estilo-imagen', e)
-    } catch {
-      /* sin almacenamiento */
-    }
+    guardar('rivero-estilo-imagen', e)
+  }
+
+  function elegirFormato(f: Formato) {
+    setFormato(f)
+    setAviso('')
+    guardar('rivero-formato-imagen', f)
   }
 
   async function compartir() {
@@ -131,8 +146,12 @@ export function BotonCompartir({
         {etiqueta}
       </Boton>
       <Hoja titulo="Compartir" abierta={abierta} onCerrar={cerrar}>
+        <Pestanas valor={formato} onChange={elegirFormato} opciones={FORMATOS} />
         <Pestanas valor={estilo} onChange={elegir} opciones={ESTILOS} />
-        <div className="relative mx-auto aspect-[4/5] w-full max-w-xs overflow-hidden rounded-2xl shadow-lg" style={fondoVista}>
+        <div
+          className={`relative mx-auto w-full overflow-hidden rounded-2xl shadow-lg ${formato === 'historia' ? 'aspect-[9/16] max-w-[14rem]' : 'aspect-[4/5] max-w-xs'}`}
+          style={fondoVista}
+        >
           {url && <img src={url} alt="Imagen para compartir" className={`h-full w-full ${generando ? 'opacity-50' : ''}`} />}
           {generando && <p className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-texto-2">Creando imagen…</p>}
         </div>

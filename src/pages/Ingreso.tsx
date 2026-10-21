@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useSesion } from '../lib/sesion'
 import { esCiValida, esPinValido } from '../lib/acceso'
+import { Firma } from '../components/Firma'
 import { Boton, Campo, Logo, MensajeError } from '../components/ui'
 
 export default function Ingreso() {
@@ -78,6 +79,7 @@ export default function Ingreso() {
           Primer uso: crear el acceso del entrenador
         </Link>
       )}
+      <Firma className="mt-6" />
     </main>
   )
 }

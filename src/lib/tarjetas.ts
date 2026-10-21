@@ -1,12 +1,15 @@
 // Imágenes para compartir en Instagram / WhatsApp, con la marca Rivero.
-// Se dibujan en el celular (canvas) y se comparten como PNG de 1080×1350.
-// Tres estilos: fondo azul, fondo blanco o sin fondo (para poner sobre una foto).
+// Se dibujan en el celular (canvas) y se comparten como PNG.
+// Dos formatos: historia (1080×1920, pantalla completa) o publicación (1080×1350).
+// Tres fondos: azul, blanco o sin fondo (para poner sobre una foto).
 
 export type Dato = { etiqueta: string; valor: string }
 export type Barra = { etiqueta: string; valor: number; texto?: string; destacada?: boolean }
 export type Grafico = { titulo: string; barras?: Barra[]; ritmos?: number[] }
 export type Fila = { icono: string; texto: string; valor: string; progreso?: number; cumplido?: boolean }
 export type Estilo = 'azul' | 'blanco' | 'transparente'
+export type Formato = 'historia' | 'publicacion'
+export type Diseno = { fondo: Estilo; formato: Formato }
 
 export const ESTILOS: { valor: Estilo; texto: string }[] = [
   { valor: 'azul', texto: '🔵 Azul' },
@@ -14,8 +17,19 @@ export const ESTILOS: { valor: Estilo; texto: string }[] = [
   { valor: 'transparente', texto: '🔲 Sin fondo' },
 ]
 
+export const FORMATOS: { valor: Formato; texto: string }[] = [
+  { valor: 'historia', texto: '📱 Historia' },
+  { valor: 'publicacion', texto: '🖼️ Publicación' },
+]
+
 const ANCHO = 1080
-const ALTO = 1350
+const ALTO_PUBLICACION = 1350
+const ALTO_HISTORIA = 1920
+// En historia se deja libre arriba y abajo lo que tapa Instagram (nombre y barra de respuesta).
+const BAJADA = 200
+const LIBRE_ABAJO = 140
+// Alto del contenido de la imagen que se está dibujando (lo fija lienzo()).
+let ALTO = ALTO_PUBLICACION
 const M = 64 // margen
 const MARINO = '#0B1B3A'
 const AZUL = '#1446B8'
@@ -50,7 +64,10 @@ function cargarLogo(url: string) {
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
 
-async function lienzo(estilo: Estilo) {
+async function lienzo(d: Diseno) {
+  const estilo = d.fondo
+  const historia = d.formato === 'historia'
+  const altoTotal = historia ? ALTO_HISTORIA : ALTO_PUBLICACION
   // Esperar las tipografías de la marca para que la imagen salga bien.
   await Promise.all([
     document.fonts.load('800 120px Archivo'),
@@ -61,11 +78,11 @@ async function lienzo(estilo: Estilo) {
   const p = PALETAS[estilo]
   const c = document.createElement('canvas')
   c.width = ANCHO
-  c.height = ALTO
+  c.height = altoTotal
   const g = c.getContext('2d')!
 
   if (estilo !== 'transparente') {
-    const fondo = g.createLinearGradient(0, 0, ANCHO, ALTO)
+    const fondo = g.createLinearGradient(0, 0, ANCHO, altoTotal)
     if (estilo === 'azul') {
       fondo.addColorStop(0, '#071330')
       fondo.addColorStop(0.55, MARINO)
@@ -76,13 +93,13 @@ async function lienzo(estilo: Estilo) {
       fondo.addColorStop(1, '#E2EBFF')
     }
     g.fillStyle = fondo
-    g.fillRect(0, 0, ANCHO, ALTO)
+    g.fillRect(0, 0, ANCHO, altoTotal)
     // Las "líneas de velocidad" del logo.
     g.save()
     g.globalAlpha = estilo === 'azul' ? 0.09 : 0.06
     g.fillStyle = estilo === 'azul' ? CELESTE : AZUL
     for (let i = 0; i < 7; i++) {
-      const y = 820 + i * 70
+      const y = 820 + (historia ? 420 : 0) + i * 70
       g.beginPath()
       g.moveTo(-100 + i * 40, y)
       g.lineTo(ANCHO + 200, y - 520)
@@ -102,6 +119,9 @@ async function lienzo(estilo: Estilo) {
   }
 
   const img = await cargarLogo(p.logo)
+  // Desde acá todo es sincrónico: es seguro fijar el alto para esta imagen.
+  ALTO = historia ? ALTO_HISTORIA - BAJADA - LIBRE_ABAJO : ALTO_PUBLICACION
+  if (historia) g.translate(0, BAJADA)
   if (img) {
     const w = 330
     g.drawImage(img, M, 56, w, (img.height / img.width) * w)
@@ -125,6 +145,14 @@ function ajustar(g: CanvasRenderingContext2D, texto: string, max: number, fuente
   let t = texto
   while (t.length > 3 && g.measureText(t + '…').width > max) t = t.slice(0, -1)
   return t + '…'
+}
+
+/** Achica la letra hasta que el texto entre; recién ahí lo corta con '…'. */
+function caber(g: CanvasRenderingContext2D, texto: string, max: number, fuente: (px: number) => string, px: number, minimo = Math.round(px * 0.6)) {
+  let n = px
+  g.font = fuente(n)
+  while (n > minimo && g.measureText(texto).width > max) g.font = fuente(--n)
+  return { texto: ajustar(g, texto, max, fuente(n)), fuente: fuente(n) }
 }
 
 function redondeado(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -157,20 +185,39 @@ function pie(g: CanvasRenderingContext2D, p: Paleta, nombre: string) {
   txt(g, ajustar(g, nombre, 420, TEXTO(500, 30)), ANCHO - M, ALTO - 66, TEXTO(500, 30), p.acento, 'right')
 }
 
-/** Datos en recuadros, de a `cols` por fila. Devuelve dónde termina. */
-function grilla(g: CanvasRenderingContext2D, p: Paleta, datos: Dato[], y: number, cols = datos.length === 2 || datos.length === 4 ? 2 : 3) {
+const ICONO_DATO: Record<string, string> = { Tiempo: '⏱️', Ritmo: '⚡', 'Pulso prom.': '❤️', Desnivel: '⛰️', Sesiones: '🏃', 'Km totales': '📏', Logros: '🏅' }
+
+/** Una píldora: ícono en un círculo de color, el valor grande y la etiqueta abajo. */
+function pildora(g: CanvasRenderingContext2D, p: Paleta, x: number, y: number, w: number, alto: number, icono: string, valor: string, etiqueta: string) {
+  panel(g, p, x, y, w, alto, alto / 2)
+  const r = alto * 0.35
+  const cx = x + alto / 2
+  const cy = y + alto / 2
+  g.beginPath()
+  g.arc(cx, cy, r, 0, Math.PI * 2)
+  g.fillStyle = p.acento
+  g.fill()
+  g.textBaseline = 'middle'
+  txt(g, icono, cx, cy + 2, TEXTO(400, Math.round(r)), '#000', 'center')
+  g.textBaseline = 'alphabetic'
+  const ancho = w - alto - 30
+  const v = caber(g, valor, ancho, (n) => MONO(700, n), Math.round(alto * 0.38), 22)
+  txt(g, v.texto, x + alto + 6, y + alto * 0.5, v.fuente, p.texto)
+  txt(g, ajustar(g, etiqueta.toUpperCase(), ancho, TEXTO(600, 21)), x + alto + 6, y + alto * 0.8, TEXTO(600, 21), p.suave)
+}
+
+/** Datos como píldoras, de a `cols` por fila. Devuelve dónde termina. */
+function datosPildoras(g: CanvasRenderingContext2D, p: Paleta, datos: Dato[], y: number, cols = 2) {
   const gap = 18
   const col = (ANCHO - 2 * M - gap * (cols - 1)) / cols
-  const alto = 108
-  datos.slice(0, cols * 2).forEach((d, i) => {
-    const x = M + (i % cols) * (col + gap)
-    const yy = y + Math.floor(i / cols) * (alto + gap)
-    panel(g, p, x, yy, col, alto)
-    txt(g, ajustar(g, d.etiqueta.toUpperCase(), col - 48, TEXTO(500, 24)), x + 24, yy + 42, TEXTO(500, 24), p.acento)
-    txt(g, ajustar(g, d.valor, col - 48, MONO(600, 42)), x + 24, yy + 94, MONO(600, 42), p.texto)
+  const alto = cols > 2 ? 96 : 104
+  datos.slice(0, cols * 3).forEach((d, i) => {
+    // En "Sensación" el emoji va en el círculo y el texto como valor.
+    const icono = ICONO_DATO[d.etiqueta] ?? d.valor.split(' ')[0]
+    const valor = ICONO_DATO[d.etiqueta] ? d.valor : d.valor.split(' ').slice(1).join(' ') || d.valor
+    pildora(g, p, M + (i % cols) * (col + gap), y + Math.floor(i / cols) * (alto + 16), col, alto, icono, valor, d.etiqueta)
   })
-  const filas = Math.ceil(Math.min(datos.length, cols * 2) / cols)
-  return y + filas * (alto + gap)
+  return y + Math.ceil(Math.min(datos.length, cols * 3) / cols) * (alto + 16)
 }
 
 function tituloGrafico(g: CanvasRenderingContext2D, p: Paleta, t: string, y: number) {
@@ -287,7 +334,7 @@ const aBlob = (c: HTMLCanvasElement) => new Promise<Blob>((ok, mal) => c.toBlob(
 
 /** Tarjeta de un entrenamiento: número grande, datos y gráfico del ritmo por km (o plan vs. hecho). */
 export async function tarjetaSesion(o: {
-  estilo: Estilo
+  estilo: Diseno
   nombre: string
   fecha: string
   tipo: string
@@ -301,11 +348,12 @@ export async function tarjetaSesion(o: {
   const { c, g, p } = await lienzo(o.estilo)
   encabezado(g, p, o.fecha)
   txt(g, o.tipo.toUpperCase(), M, 290, TITULO(700, 38), p.acento)
-  txt(g, ajustar(g, o.titulo, ANCHO - 2 * M, TITULO(700, 52)), M, 352, TITULO(700, 52), p.texto)
+  const tit = caber(g, o.titulo, ANCHO - 2 * M, (n) => TITULO(700, n), 52, 34)
+  txt(g, tit.texto, M, 352, tit.fuente, p.texto)
   txt(g, o.numero, M - 8, 568, TITULO(800, 220), p.texto)
   const w = g.measureText(o.numero).width
   txt(g, o.unidad, M + w + 12, 568, TITULO(700, 70), p.acento)
-  const fin = grilla(g, p, o.datos, 612)
+  const fin = datosPildoras(g, p, o.datos, 612)
 
   const parciales = (o.parciales ?? []).filter((x) => x > 0)
   const y = Math.max(fin + 16, 880)
@@ -322,7 +370,7 @@ export async function tarjetaSesion(o: {
 
 /** Tarjeta de lista: semana, récords, retos… con gráfico opcional arriba. */
 export async function tarjetaLista(o: {
-  estilo: Estilo
+  estilo: Diseno
   nombre: string
   titulo: string
   subtitulo: string
@@ -350,17 +398,12 @@ export async function tarjetaLista(o: {
   } else y += 20
 
   if (o.mosaico) {
-    const gap = 20
+    const gap = 18
     const col = (ANCHO - 2 * M - gap) / 2
-    const alto = 124
-    const n = Math.floor((limite - y + gap) / (alto + gap)) * 2
+    const alto = 112
+    const n = Math.floor((limite - y + 16) / (alto + 16)) * 2
     o.filas.slice(0, n).forEach((f, i) => {
-      const x = M + (i % 2) * (col + gap)
-      const yy = y + Math.floor(i / 2) * (alto + gap)
-      panel(g, p, x, yy, col, alto)
-      txt(g, f.icono, x + 24, yy + 76, TEXTO(400, 50), p.texto)
-      txt(g, ajustar(g, f.texto, col - 120, TEXTO(500, 26)), x + 100, yy + 50, TEXTO(500, 26), p.suave)
-      txt(g, ajustar(g, f.valor, col - 120, MONO(600, 40)), x + 100, yy + 98, MONO(600, 40), p.texto)
+      pildora(g, p, M + (i % 2) * (col + gap), y + Math.floor(i / 2) * (alto + 16), col, alto, f.icono, f.valor, f.texto)
     })
   } else {
     const conBarra = o.filas.some((f) => f.progreso !== undefined)
@@ -394,18 +437,23 @@ export async function tarjetaLista(o: {
 }
 
 /** Tarjeta de un logro desbloqueado, como una medalla. */
-export async function tarjetaLogro(o: { estilo: Estilo; nombre: string; icono: string; titulo: string; detalle: string; fecha: string; color?: string; datos?: Dato[] }) {
+export async function tarjetaLogro(o: { estilo: Diseno; nombre: string; icono: string; titulo: string; detalle: string; fecha: string; color?: string; datos?: Dato[] }) {
   const { c, g, p } = await lienzo(o.estilo)
   encabezado(g, p, o.fecha)
+  // En historia la medalla queda centrada en el espacio extra.
+  const dy = (ALTO - ALTO_PUBLICACION) / 2
+  g.save()
+  g.translate(0, dy)
   // Un color de logro muy oscuro no se ve sobre el fondo azul: se usa el celeste.
   const oscuro = (h: string) => {
     const n = parseInt(h.slice(1, 7), 16)
     return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) < 60
   }
-  const color = o.color && !(o.estilo !== 'blanco' && oscuro(o.color)) ? o.color : o.estilo === 'blanco' ? AZUL : CELESTE
+  const fondo = o.estilo.fondo
+  const color = o.color && !(fondo !== 'blanco' && oscuro(o.color)) ? o.color : fondo === 'blanco' ? AZUL : CELESTE
   const cx = ANCHO / 2
   const cy = 540
-  const luz = o.estilo === 'blanco' ? '#7EA6FF' : CELESTE
+  const luz = fondo === 'blanco' ? '#7EA6FF' : CELESTE
   const brillo = g.createRadialGradient(cx, cy, 60, cx, cy, 330)
   brillo.addColorStop(0, luz + '88')
   brillo.addColorStop(1, luz + '00')
@@ -438,9 +486,11 @@ export async function tarjetaLogro(o: { estilo: Estilo; nombre: string; icono: s
   txt(g, o.icono, cx, cy + 8, TEXTO(400, 170), '#000', 'center')
   g.textBaseline = 'alphabetic'
   txt(g, '¡LOGRO DESBLOQUEADO!', cx, 820, TITULO(700, 40), p.acento, 'center')
-  txt(g, ajustar(g, o.titulo, ANCHO - 2 * M, TITULO(800, 86)), cx, 912, TITULO(800, 86), p.texto, 'center')
+  const tit = caber(g, o.titulo, ANCHO - 2 * M, (n) => TITULO(800, n), 86, 56)
+  txt(g, tit.texto, cx, 912, tit.fuente, p.texto, 'center')
   txt(g, ajustar(g, o.detalle, ANCHO - 2 * M, TEXTO(500, 36)), cx, 968, TEXTO(500, 36), p.suave, 'center')
-  if (o.datos?.length) grilla(g, p, o.datos, 1022)
+  if (o.datos?.length) datosPildoras(g, p, o.datos, 1022, 3)
+  g.restore()
   pie(g, p, o.nombre)
   return aBlob(c)
 }

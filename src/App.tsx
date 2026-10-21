@@ -1,4 +1,5 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
+import { pantalla, useActualizarAlNavegar } from './lib/version'
 import { Navigate, Route, Routes } from 'react-router'
 import { useSesion } from './lib/sesion'
 import { configFaltante } from './lib/supabase'
@@ -11,33 +12,38 @@ import Ingreso from './pages/Ingreso'
 import PrimerUso from './pages/PrimerUso'
 import CambiarPin from './pages/CambiarPin'
 import Registro from './pages/Registro'
-const Solicitudes = lazy(() => import('./pages/entrenador/Solicitudes'))
+const Solicitudes = pantalla(() => import('./pages/entrenador/Solicitudes'))
 // Cada pantalla se descarga recién cuando se abre: la primera carga es más liviana.
-const Alumnos = lazy(() => import('./pages/entrenador/Alumnos'))
-const FichaAlumno = lazy(() => import('./pages/entrenador/FichaAlumno'))
-const AlumnoForm = lazy(() => import('./pages/entrenador/AlumnoForm'))
-const EditorPlan = lazy(() => import('./pages/entrenador/EditorPlan'))
-const EvaluarSesion = lazy(() => import('./pages/entrenador/EvaluarSesion'))
-const Planes = lazy(() => import('./pages/entrenador/Planes'))
-const Cuentas = lazy(() => import('./pages/entrenador/Cuentas'))
-const Evolucion = lazy(() => import('./pages/entrenador/Evolucion'))
-const CompetenciasEntrenador = lazy(() => import('./pages/entrenador/CompetenciasEntrenador'))
-const Hoy = lazy(() => import('./pages/alumno/Hoy'))
-const MiSemana = lazy(() => import('./pages/alumno/MiSemana'))
-const Progreso = lazy(() => import('./pages/alumno/Progreso'))
-const RegistrarSesion = lazy(() => import('./pages/alumno/RegistrarSesion'))
-const Carreras = lazy(() => import('./pages/alumno/Carreras'))
-const ChatAlumno = lazy(() => import('./pages/alumno/ChatAlumno'))
-const Mensajes = lazy(() => import('./pages/entrenador/Mensajes'))
-const ChatEntrenador = lazy(() => import('./pages/entrenador/ChatEntrenador'))
-const Perfil = lazy(() => import('./pages/Perfil'))
-const Calculadora = lazy(() => import('./pages/Calculadora'))
-const Herramientas = lazy(() => import('./pages/entrenador/Herramientas'))
-const Anuncios = lazy(() => import('./pages/entrenador/Anuncios'))
-const Grupos = lazy(() => import('./pages/entrenador/Grupos'))
-const Plantillas = lazy(() => import('./pages/entrenador/Plantillas'))
-const Asistencia = lazy(() => import('./pages/entrenador/Asistencia'))
-const TomarAsistencia = lazy(() => import('./pages/entrenador/Asistencia').then((m) => ({ default: m.TomarAsistencia })))
+const Alumnos = pantalla(() => import('./pages/entrenador/Alumnos'))
+const FichaAlumno = pantalla(() => import('./pages/entrenador/FichaAlumno'))
+const AlumnoForm = pantalla(() => import('./pages/entrenador/AlumnoForm'))
+const EditorPlan = pantalla(() => import('./pages/entrenador/EditorPlan'))
+const EvaluarSesion = pantalla(() => import('./pages/entrenador/EvaluarSesion'))
+const Planes = pantalla(() => import('./pages/entrenador/Planes'))
+const Cuentas = pantalla(() => import('./pages/entrenador/Cuentas'))
+const Evolucion = pantalla(() => import('./pages/entrenador/Evolucion'))
+const CompetenciasEntrenador = pantalla(() => import('./pages/entrenador/CompetenciasEntrenador'))
+const Hoy = pantalla(() => import('./pages/alumno/Hoy'))
+const MiSemana = pantalla(() => import('./pages/alumno/MiSemana'))
+const Progreso = pantalla(() => import('./pages/alumno/Progreso'))
+const RegistrarSesion = pantalla(() => import('./pages/alumno/RegistrarSesion'))
+const Carreras = pantalla(() => import('./pages/alumno/Carreras'))
+const ChatAlumno = pantalla(() => import('./pages/alumno/ChatAlumno'))
+const Mensajes = pantalla(() => import('./pages/entrenador/Mensajes'))
+const ChatEntrenador = pantalla(() => import('./pages/entrenador/ChatEntrenador'))
+const Perfil = pantalla(() => import('./pages/Perfil'))
+const Calculadora = pantalla(() => import('./pages/Calculadora'))
+const Salud = pantalla(() => import('./pages/alumno/Salud'))
+const MisZapatillas = pantalla(() => import('./pages/alumno/MisZapatillas'))
+const Agenda = pantalla(() => import('./pages/entrenador/Agenda'))
+const Alertas = pantalla(() => import('./pages/entrenador/Alertas'))
+const Emergencias = pantalla(() => import('./pages/entrenador/Emergencias'))
+const Herramientas = pantalla(() => import('./pages/entrenador/Herramientas'))
+const Anuncios = pantalla(() => import('./pages/entrenador/Anuncios'))
+const Grupos = pantalla(() => import('./pages/entrenador/Grupos'))
+const Plantillas = pantalla(() => import('./pages/entrenador/Plantillas'))
+const Asistencia = pantalla(() => import('./pages/entrenador/Asistencia'))
+const TomarAsistencia = pantalla(() => import('./pages/entrenador/Asistencia').then((m) => ({ default: m.TomarAsistencia })))
 
 const pestanasEntrenador = (chat: number): Pestana[] => [
   { a: '/alumnos', texto: 'Alumnos', icono: <IconoAlumnos /> },
@@ -56,6 +62,7 @@ const pestanasAlumno = (chat: number): Pestana[] => [
 ]
 export default function App() {
   const { cargando, session, perfil, salir } = useSesion()
+  useActualizarAlNavegar()
 
   if (configFaltante) {
     return (
@@ -127,6 +134,9 @@ function RutasEntrenador({ miId }: { miId: string }) {
         <Route path="/asistencia" element={<Asistencia />} />
         <Route path="/asistencia/:id" element={<TomarAsistencia />} />
         <Route path="/calculadora" element={<Calculadora />} />
+        <Route path="/agenda" element={<Agenda />} />
+        <Route path="/alertas" element={<Alertas />} />
+        <Route path="/emergencias" element={<Emergencias />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="*" element={<Navigate to="/alumnos" replace />} />
       </Routes>
@@ -149,6 +159,8 @@ function RutasAlumno({ miId }: { miId: string }) {
         </Route>
         <Route path="/registrar/:sesionId" element={<RegistrarSesion />} />
         <Route path="/calculadora" element={<Calculadora />} />
+        <Route path="/salud" element={<Salud />} />
+        <Route path="/zapatillas" element={<MisZapatillas />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="*" element={<Navigate to="/hoy" replace />} />
       </Routes>

@@ -10,6 +10,7 @@ import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo, leerDuracion, l
 import type { Molestia, SesionPlan, SesionReg, Split } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { BotonCompartir, imagenDeSesion } from '../../components/Compartir'
+import { useZapatillas } from '../../components/salud/Zapatillas'
 import { ObjetivosSesion, useTipos } from '../../components/Semana'
 import { AreaTexto, Boton, Campo, Cargando, EtiquetaTipo, MensajeError, Opciones, Pestanas, Tarjeta } from '../../components/ui'
 
@@ -56,6 +57,8 @@ export default function RegistrarSesion() {
   const [sensacion, setSensacion] = useState<number | null>(null)
   const [molestia, setMolestia] = useState<Molestia | null>(null)
   const [comentario, setComentario] = useState('')
+  const { lista: zapatillas } = useZapatillas(alumno.id)
+  const [calzado, setCalzado] = useState<string | null | undefined>(undefined) // undefined = la principal
 
   // Garmin
   const [link, setLink] = useState('')
@@ -82,6 +85,7 @@ export default function RegistrarSesion() {
         setFcMax(reg.fc_max ? String(reg.fc_max) : '')
         setSensacion(reg.sensacion)
         setComentario(reg.comentario_alumno ?? '')
+        setCalzado(reg.calzado_id ?? null)
         if (reg.garmin_url) setLink(reg.garmin_url)
         else setModo('manual')
         const m = await supabase.from('molestias_ciclo').select('nivel').eq('sesion_registrada_id', reg.id).maybeSingle()
@@ -89,6 +93,9 @@ export default function RegistrarSesion() {
       }
     })()
   }, [sesionId])
+
+  const enUso = (zapatillas ?? []).filter((z) => !z.retirada)
+  const calzadoElegido = calzado === undefined ? (enUso.find((z) => z.principal)?.id ?? null) : calzado
 
   const km = leerNumero(distancia)
   const seg = leerDuracion(tiempo)
@@ -131,6 +138,7 @@ export default function RegistrarSesion() {
       datos_crudos: garmin ? garmin.datos_crudos : undefined,
       sensacion,
       comentario_alumno: comentario.trim() || null,
+      calzado_id: calzadoElegido,
     }
     setGuardando(true)
     try {
@@ -275,6 +283,15 @@ export default function RegistrarSesion() {
       </p>
 
       <Opciones label="¿Cómo te sentiste?" valor={sensacion} onChange={setSensacion} opciones={SENSACIONES} />
+
+      {enUso.length > 0 && (
+        <Opciones
+          label="👟 Zapatillas"
+          valor={calzadoElegido ?? 'ninguna'}
+          onChange={(v) => setCalzado(v === 'ninguna' ? null : v)}
+          opciones={[...enUso.map((z) => ({ valor: z.id, texto: z.nombre })), { valor: 'ninguna', texto: 'Otras' }]}
+        />
+      )}
 
       {alumno.sexo === 'F' && (
         <div>

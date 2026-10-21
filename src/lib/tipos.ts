@@ -14,6 +14,7 @@ export type Alumno = {
   objetivo: string | null
   nivel: Nivel
   fc_max: number | null
+  fc_reposo?: number | null
   altura_cm: number | null
   sexo: 'F' | 'M'
   comparte_ciclo: boolean
@@ -69,6 +70,7 @@ export type SesionReg = {
   fc_prom: number | null
   fc_max: number | null
   splits: Split[]
+  calzado_id?: string | null
   sensacion: number | null
   comentario_alumno: string | null
   datos_crudos?: { titulo?: string | null; desnivel_m?: number | null } | null

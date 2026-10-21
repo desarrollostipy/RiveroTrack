@@ -13,6 +13,8 @@ import { CuadritosSemana, ObjetivosSesion, TextoRegistro, useTipos } from '../..
 import { Avatar, Cargando, estadoVigente, EtiquetaTipo, GloboEstado, Semaforo, Tarjeta, Titulo } from '../../components/ui'
 import { MiCiclo } from './MiCiclo'
 import { AnunciosAlumno, InvitarNotificaciones } from '../../components/AnunciosAlumno'
+import { BienestarHoy } from '../../components/salud/Bienestar'
+import { AvisoZapatillas } from '../../components/salud/Zapatillas'
 
 type Feedback = Evaluacion & { sesiones_planificadas: { fecha: string; resumen: string | null; tipo: string } | null }
 
@@ -78,7 +80,9 @@ export default function Hoy() {
       }
     >
       <InvitarNotificaciones />
+      <BienestarHoy alumnoId={alumno.id} />
       <AnunciosAlumno />
+      <AvisoZapatillas alumnoId={alumno.id} />
       <AvisoCuota cuotas={cuotas} cuotaMensual={alumno.cuota_mensual} dia={alumno.dia_vencimiento} />
 
       {semana === undefined ? (

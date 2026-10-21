@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useSesion } from '../lib/sesion'
 import { mensajeError } from '../lib/consultas'
@@ -6,6 +7,7 @@ import { esPinValido } from '../lib/acceso'
 import { guardarTema, preferenciaTema, type PreferenciaTema } from '../lib/tema'
 import { activarPush, desactivarPush, esIphoneSinInstalar, notificar, pushSoportado, suscripcionActual } from '../lib/push'
 import { Pantalla } from '../components/Pantalla'
+import { Firma } from '../components/Firma'
 import { Avatar, Boton, Campo, estadoVigente, GloboEstado, MensajeError, MensajeOk, Opciones, Tarjeta, Titulo } from '../components/ui'
 
 const EMOJIS = ['💪', '🔥', '😄', '😴', '🤕', '😅', '🏃', '🏆', '🎯', '❤️', '🙏', '🌧️']
@@ -19,13 +21,36 @@ export default function Perfil() {
     <Pantalla titulo="Mi perfil" volver={perfil.rol === 'entrenador' ? '/alumnos' : '/hoy'}>
       <Foto />
       <EstadoAnimo />
+      {perfil.rol === 'alumno' && <AccesosAlumno />}
       <Notificaciones />
       <Tema />
       <CambiarMiPin />
       <Boton variante="borde" className="mt-2" onClick={salir}>
         Cerrar sesión
       </Boton>
+      <Firma className="mt-4" />
     </Pantalla>
+  )
+}
+
+// Mi salud y mis zapatillas (solo alumnos).
+function AccesosAlumno() {
+  const enlaces = [
+    { a: '/salud', icono: '❤️', titulo: 'Mi salud', texto: 'Bienestar, molestias, pulso y ficha médica' },
+    { a: '/zapatillas', icono: '👟', titulo: 'Mis zapatillas', texto: 'Kilómetros de cada par' },
+  ]
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {enlaces.map((e) => (
+        <Link key={e.a} to={e.a} className="flex flex-col gap-1 rounded-2xl border border-borde bg-superficie p-3 hover:border-azul">
+          <span className="text-2xl" aria-hidden="true">
+            {e.icono}
+          </span>
+          <span className="font-semibold">{e.titulo}</span>
+          <span className="text-xs text-texto-2">{e.texto}</span>
+        </Link>
+      ))}
+    </div>
   )
 }
 

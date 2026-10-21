@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import { pantalla } from '../../lib/version'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { cargarAlumno, mensajeError } from '../../lib/consultas'
@@ -12,13 +13,14 @@ import { Records } from '../../components/Records'
 import { AsistenciaMes } from '../../components/AsistenciaMes'
 import { Boton, Campo, Cargando, MensajeError, Pestanas, Tarjeta } from '../../components/ui'
 // Los gráficos pesan: se descargan solo al abrir la pestaña Evolución.
-const EvolucionAlumno = lazy(() => import('../../components/EvolucionAlumno').then((m) => ({ default: m.EvolucionAlumno })))
+const EvolucionAlumno = pantalla(() => import('../../components/EvolucionAlumno').then((m) => ({ default: m.EvolucionAlumno })))
 import { TabSemana } from './ficha/TabSemana'
 import { TabPagos } from './ficha/TabPagos'
 import { Acceso } from './ficha/Acceso'
 import { Competencias, Marcas } from './ficha/MarcasCompetencias'
+import { TabSalud } from './ficha/TabSalud'
 
-type Tab = 'semana' | 'pagos' | 'evolucion'
+type Tab = 'semana' | 'salud' | 'pagos' | 'evolucion'
 
 export default function FichaAlumno() {
   const { id } = useParams()
@@ -114,11 +116,13 @@ export default function FichaAlumno() {
         onChange={setTab}
         opciones={[
           { valor: 'semana', texto: 'Semana' },
+          { valor: 'salud', texto: 'Salud' },
           { valor: 'pagos', texto: 'Pagos' },
           { valor: 'evolucion', texto: 'Evolución' },
         ]}
       />
       {tab === 'semana' && <TabSemana alumnoId={alumno.id} />}
+      {tab === 'salud' && <TabSalud alumno={alumno} onCambio={cargar} />}
       {tab === 'pagos' && <TabPagos alumno={alumno} cuotas={cuotas} pagos={pagos} onCambio={cargar} />}
       {tab === 'evolucion' && (
         <Suspense fallback={<Cargando />}>
