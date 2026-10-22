@@ -4,7 +4,8 @@ import { supabase } from '../../lib/supabase'
 import { cargarAlumno, cargarSemanas, mensajeError } from '../../lib/consultas'
 import { kmPlanificados, textoWhatsApp } from '../../lib/calculos'
 import { DIAS, diasDeSemana, hoyPY, lunesDe, rangoSemana, sumarDias } from '../../lib/fechas'
-import { formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo, leerNumero, leerRitmo } from '../../lib/formato'
+import { formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo, leerDuracion, leerNumero, leerRitmo } from '../../lib/formato'
+import { esIntervalos, kmReps, REC_TIPOS, ritmoDeVuelta, textoReps, textoTiempo, type RecTipo } from '../../lib/intervalos'
 import type { Alumno, Plan, Plantilla, SesionPlan } from '../../lib/tipos'
 import { notificar } from '../../lib/push'
 import { usePlantillas } from './Plantillas'
@@ -29,6 +30,12 @@ type Borrador = {
   fcMax: string
   estructura: string
   notas: string
+  reps: string
+  repM: string
+  repMin: string
+  repMax: string
+  recSeg: string
+  recTipo: RecTipo | null
   registrada?: boolean
 }
 
@@ -50,8 +57,21 @@ const aBorrador = (s: SesionPlan, registrada = false): Borrador => ({
   fcMax: s.fc_obj_max ? String(s.fc_obj_max) : '',
   estructura: s.estructura ?? '',
   notas: s.notas ?? '',
+  ...repsABorrador(s),
   registrada,
 })
+
+/** Campos de repeticiones de una sesión o plantilla, para el formulario. */
+function repsABorrador(s: { reps?: number | null; rep_m?: number | null; rep_seg_min?: number | null; rep_seg_max?: number | null; rec_seg?: number | null; rec_tipo?: RecTipo | null }) {
+  return {
+    reps: s.reps ? String(s.reps) : '',
+    repM: s.rep_m ? String(s.rep_m) : '',
+    repMin: s.rep_seg_min ? textoTiempo(s.rep_seg_min) : '',
+    repMax: s.rep_seg_max ? textoTiempo(s.rep_seg_max) : '',
+    recSeg: s.rec_seg ? textoTiempo(s.rec_seg) : '',
+    recTipo: s.rec_tipo ?? null,
+  }
+}
 
 const aFila = (b: Borrador, planId: string) => {
   let min = leerRitmo(b.ritmoMin)
@@ -63,21 +83,39 @@ const aFila = (b: Borrador, planId: string) => {
   if (fcMin && fcMax && fcMin > fcMax) [fcMin, fcMax] = [fcMax, fcMin]
   const fcValida = (n: number | null) => (n && n >= 60 && n <= 230 ? Math.round(n) : null)
   const descanso = b.tipo === 'descanso'
+  const conReps = !descanso && esIntervalos(b.tipo)
+  const reps = conReps ? leerNumero(b.reps) : null
+  const repM = conReps ? leerNumero(b.repM) : null
+  let repMin = conReps ? leerDuracion(b.repMin) : null
+  let repMax = conReps ? leerDuracion(b.repMax) : null
+  if (repMin && repMax && repMin > repMax) [repMin, repMax] = [repMax, repMin]
+  const recSeg = conReps ? leerDuracion(b.recSeg) : null
+  const r = reps && repM ? { reps: Math.round(reps), rep_m: Math.round(repM), rep_seg_min: repMin, rep_seg_max: repMax, rec_seg: recSeg, rec_tipo: b.recTipo } : null
+  if (r && !min && !max && (repMin || repMax)) {
+    min = repMin ? ritmoDeVuelta(repMin, r.rep_m) : null
+    max = repMax ? ritmoDeVuelta(repMax, r.rep_m) : null
+  }
   return {
     ...(b.id ? { id: b.id } : {}),
     plan_id: planId,
     fecha: b.fecha,
     turno: b.turno,
     tipo: b.tipo,
-    resumen: b.resumen.trim() || null,
-    distancia_km: descanso ? null : leerNumero(b.distancia),
+    resumen: b.resumen.trim() || (r ? `${r.reps}×${r.rep_m}` : null),
+    distancia_km: descanso ? null : (leerNumero(b.distancia) ?? (r ? kmReps(r.reps, r.rep_m) : null)),
     duracion_min: descanso ? null : (leerNumero(b.duracion) ?? null),
     ritmo_min_seg: descanso ? null : min,
     ritmo_max_seg: descanso ? null : max,
     fc_obj_min: descanso ? null : fcValida(fcMin),
     fc_obj_max: descanso ? null : fcValida(fcMax),
-    estructura: descanso ? null : b.estructura.trim() || null,
+    estructura: descanso ? null : b.estructura.trim() || (r ? textoReps(r) : null),
     notas: b.notas.trim() || null,
+    reps: r?.reps ?? null,
+    rep_m: r?.rep_m ?? null,
+    rep_seg_min: r?.rep_seg_min ?? null,
+    rep_seg_max: r?.rep_seg_max ?? null,
+    rec_seg: r?.rec_seg ?? null,
+    rec_tipo: r?.rec_tipo ?? null,
   }
 }
 
@@ -291,6 +329,7 @@ export default function EditorPlan() {
       fcMax: p.fc_obj_max ? String(p.fc_obj_max) : '',
       estructura: p.estructura ?? '',
       notas: p.notas ?? '',
+      ...repsABorrador(p),
     })
     setAviso(`Plantilla "${p.nombre}" aplicada.`)
   }
@@ -446,6 +485,7 @@ export default function EditorPlan() {
                               value={b.resumen}
                               onChange={(e) => cambiar(b.clave, { resumen: e.target.value })}
                             />
+                            {esIntervalos(b.tipo) && <BloqueReps b={b} cambiar={(c) => cambiar(b.clave, c)} />}
                             <div className="grid grid-cols-2 gap-3">
                               <Campo
                                 id={`km-${b.clave}`}
@@ -579,7 +619,7 @@ export default function EditorPlan() {
 }
 
 function vacio(fecha: string, turno: 1 | 2, tipo: string): Borrador {
-  return { clave: nuevaClave(), fecha, turno, tipo, resumen: '', distancia: '', duracion: '', ritmoMin: '', ritmoMax: '', fcMin: '', fcMax: '', estructura: '', notas: '' }
+  return { clave: nuevaClave(), fecha, turno, tipo, resumen: '', distancia: '', duracion: '', ritmoMin: '', ritmoMax: '', fcMin: '', fcMax: '', estructura: '', notas: '', reps: '', repM: '', repMin: '', repMax: '', recSeg: '', recTipo: 'trote' }
 }
 
 // "520" → "5:20" mientras se tipea (teclado numérico del celular).
@@ -587,4 +627,77 @@ function formatearRitmoTipeo(v: string) {
   const d = v.replace(/\D/g, '').slice(0, 4)
   if (d.length <= 2) return d
   return `${d.slice(0, d.length - 2)}:${d.slice(-2)}`
+}
+
+const DISTANCIAS_REP = [200, 400, 600, 800, 1000, 1600, 2000]
+
+/** Pista / series: repeticiones, distancia de cada una, tiempo por vuelta y recuperación. */
+function BloqueReps({ b, cambiar }: { b: Borrador; cambiar: (c: Partial<Borrador>) => void }) {
+  const reps = leerNumero(b.reps)
+  const repM = leerNumero(b.repM)
+  const vMin = leerDuracion(b.repMin)
+  const vMax = leerDuracion(b.repMax)
+  return (
+    <fieldset className="flex flex-col gap-3 rounded-2xl border-2 border-azul/30 bg-azul/5 p-3">
+      <legend className="px-1 text-sm font-semibold">🔁 Repeticiones</legend>
+      <div className="grid grid-cols-2 gap-3">
+        <Campo id={`reps-${b.clave}`} label="Cantidad" placeholder="15" inputMode="numeric" value={b.reps} onChange={(e) => cambiar({ reps: e.target.value.replace(/\D/g, '').slice(0, 3) })} />
+        <Campo id={`repm-${b.clave}`} label="Distancia c/u (metros)" placeholder="400" inputMode="numeric" value={b.repM} onChange={(e) => cambiar({ repM: e.target.value.replace(/\D/g, '').slice(0, 5) })} />
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {DISTANCIAS_REP.map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => cambiar({ repM: String(m) })}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold ${b.repM === String(m) ? 'border-azul bg-azul text-white' : 'border-borde bg-superficie'}`}
+          >
+            {m >= 1000 ? `${m / 1000} km` : `${m} m`}
+          </button>
+        ))}
+      </div>
+      <fieldset>
+        <legend className="mb-1 text-sm font-medium">Tiempo por repetición</legend>
+        <div className="flex items-center gap-2">
+          <span className="text-sm">de</span>
+          <input aria-label="Vuelta desde (más rápida)" placeholder="1:44" inputMode="numeric" className="min-h-11 w-24 rounded-xl border border-borde px-3 font-mono" value={b.repMin} onChange={(e) => cambiar({ repMin: formatearRitmoTipeo(e.target.value) })} />
+          <span className="text-sm">a</span>
+          <input aria-label="Vuelta hasta (más lenta)" placeholder="1:48" inputMode="numeric" className="min-h-11 w-24 rounded-xl border border-borde px-3 font-mono" value={b.repMax} onChange={(e) => cambiar({ repMax: formatearRitmoTipeo(e.target.value) })} />
+        </div>
+      </fieldset>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col text-sm font-medium">
+          Recuperación
+          <input aria-label="Tiempo de recuperación" placeholder="1:30" inputMode="numeric" className="min-h-11 w-24 rounded-xl border border-borde px-3 font-mono" value={b.recSeg} onChange={(e) => cambiar({ recSeg: formatearRitmoTipeo(e.target.value) })} />
+        </label>
+        <div className="flex flex-wrap gap-1.5">
+          {REC_TIPOS.map((r) => (
+            <button
+              key={r.valor}
+              type="button"
+              aria-pressed={b.recTipo === r.valor}
+              onClick={() => cambiar({ recTipo: r.valor })}
+              className={`min-h-11 rounded-xl border px-3 text-sm font-semibold ${b.recTipo === r.valor ? 'border-azul bg-azul text-white' : 'border-borde bg-superficie'}`}
+            >
+              {r.texto}
+            </button>
+          ))}
+        </div>
+      </div>
+      {reps && repM ? (
+        <p className="text-sm text-texto-2">
+          = <b className="text-tinta">{formatoKm(kmReps(reps, repM))} km</b> de repeticiones
+          {vMin || vMax ? (
+            <>
+              {' '}
+              · ritmo ≈ <b className="font-mono text-tinta">{formatoRango(vMin ? ritmoDeVuelta(vMin, repM) : null, vMax ? ritmoDeVuelta(vMax, repM) : null)}/km</b>
+            </>
+          ) : null}
+          . La distancia, el resumen y el ritmo se completan solos si los dejás vacíos.
+        </p>
+      ) : (
+        <p className="text-xs text-texto-2">El alumno va a cargar cuántas hizo y su vuelta promedio.</p>
+      )}
+    </fieldset>
+  )
 }

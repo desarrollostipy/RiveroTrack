@@ -55,6 +55,8 @@ type Aviso =
   | { tipo: 'sesion'; sesion_planificada_id: string }
   | { tipo: 'competencia'; competencia_id: string }
   | { tipo: 'evento'; evento_id: string }
+  | { tipo: 'comprobante'; comprobante_id: string }
+  | { tipo: 'comprobante_revisado'; comprobante_id: string }
   | { tipo: 'masivo'; alumno_ids: string[]; texto: string }
   | { tipo: 'prueba' }
 

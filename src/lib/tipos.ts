@@ -53,6 +53,12 @@ export type SesionPlan = {
   fc_obj_max: number | null
   estructura: string | null
   notas: string | null
+  reps?: number | null
+  rep_m?: number | null
+  rep_seg_min?: number | null
+  rep_seg_max?: number | null
+  rec_seg?: number | null
+  rec_tipo?: 'trote' | 'caminando' | 'parado' | null
 }
 
 export type Split = { km: number; tiempo_seg: number; ritmo_seg: number; fc?: number | null }
@@ -75,6 +81,8 @@ export type SesionReg = {
   calentamiento_min?: number | null
   afloje_km?: number | null
   afloje_min?: number | null
+  reps_hechas?: number | null
+  rep_prom_seg?: number | null
   sensacion: number | null
   comentario_alumno: string | null
   datos_crudos?: { titulo?: string | null; desnivel_m?: number | null } | null
@@ -164,6 +172,12 @@ export type Plantilla = {
   fc_obj_max: number | null
   estructura: string | null
   notas: string | null
+  reps?: number | null
+  rep_m?: number | null
+  rep_seg_min?: number | null
+  rep_seg_max?: number | null
+  rec_seg?: number | null
+  rec_tipo?: 'trote' | 'caminando' | 'parado' | null
 }
 
 export type Anuncio = { id: string; texto: string; grupo_id: string | null; fijado: boolean; created_at: string }

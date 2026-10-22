@@ -4,13 +4,14 @@ import { DIAS, diaSemana } from '../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo } from '../lib/formato'
 import type { SesionReg } from '../lib/tipos'
 import { kmCorridos } from '../lib/extras'
+import { textoDistanciaRep, textoTiempo } from '../lib/intervalos'
 import { Boton, Hoja, MensajeOk, Pestanas } from './ui'
 
 const SENSACION = ['', '😣 Muy mal', '😕 Mal', '🙂 Normal', '😄 Bien', '🤩 Excelente']
 
 /** Arma la imagen de un entrenamiento registrado. */
 export function imagenDeSesion(o: {
-  registro: Pick<SesionReg, 'fecha' | 'distancia_km' | 'duracion_seg' | 'ritmo_prom_seg' | 'fc_prom' | 'sensacion' | 'splits'> & { datos_crudos?: { desnivel_m?: number | null } | null; calentamiento_km?: number | null; afloje_km?: number | null }
+  registro: Pick<SesionReg, 'fecha' | 'distancia_km' | 'duracion_seg' | 'ritmo_prom_seg' | 'fc_prom' | 'sensacion' | 'splits'> & { datos_crudos?: { desnivel_m?: number | null } | null; calentamiento_km?: number | null; afloje_km?: number | null; reps_hechas?: number | null; rep_prom_seg?: number | null; rep_m?: number | null }
   tipo: string
   titulo: string
   nombre: string
@@ -19,6 +20,8 @@ export function imagenDeSesion(o: {
 }) {
   const r = o.registro
   const datos: Dato[] = []
+  if (r.reps_hechas && r.rep_m) datos.push({ etiqueta: 'Repeticiones', valor: `${r.reps_hechas}×${textoDistanciaRep(r.rep_m)}` })
+  if (r.rep_prom_seg) datos.push({ etiqueta: 'Vuelta prom.', valor: textoTiempo(r.rep_prom_seg) })
   if (r.duracion_seg) datos.push({ etiqueta: 'Tiempo', valor: formatoDuracion(r.duracion_seg) })
   if (r.ritmo_prom_seg) datos.push({ etiqueta: 'Ritmo', valor: `${formatoRitmo(r.ritmo_prom_seg)}/km` })
   if (r.fc_prom) datos.push({ etiqueta: 'Pulso prom.', valor: `${r.fc_prom} ppm` })

@@ -185,7 +185,7 @@ function pie(g: CanvasRenderingContext2D, p: Paleta, nombre: string) {
   txt(g, ajustar(g, nombre, 420, TEXTO(500, 30)), ANCHO - M, ALTO - 66, TEXTO(500, 30), p.acento, 'right')
 }
 
-const ICONO_DATO: Record<string, string> = { Tiempo: '⏱️', Ritmo: '⚡', 'Pulso prom.': '❤️', Desnivel: '⛰️', Sesiones: '🏃', 'Km totales': '📏', Logros: '🏅', 'Total corrido': '📏' }
+const ICONO_DATO: Record<string, string> = { Tiempo: '⏱️', Ritmo: '⚡', 'Pulso prom.': '❤️', Desnivel: '⛰️', Sesiones: '🏃', 'Km totales': '📏', Logros: '🏅', 'Total corrido': '📏', Repeticiones: '🔁', 'Vuelta prom.': '⏱️' }
 
 /** Una píldora: ícono en un círculo de color, el valor grande y la etiqueta abajo. */
 function pildora(g: CanvasRenderingContext2D, p: Paleta, x: number, y: number, w: number, alto: number, icono: string, valor: string, etiqueta: string) {

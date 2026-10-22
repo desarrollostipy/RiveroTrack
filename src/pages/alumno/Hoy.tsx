@@ -214,7 +214,10 @@ function AvisoCuota({ cuotas, cuotaMensual, dia }: { cuotas: (Cuota & { pagos: P
               ))}
             </ul>
           )}
-          <p className="mt-2 text-texto-2">Cuando tu entrenador registre el pago, se actualiza acá.</p>
+          <Link to="/pagos" className="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-azul font-semibold text-white">
+            📤 Informar pago por transferencia
+          </Link>
+          <p className="mt-2 text-texto-2">Si pagaste en efectivo, tu entrenador lo registra y se actualiza acá.</p>
         </div>
       )}
     </div>

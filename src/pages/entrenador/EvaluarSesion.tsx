@@ -1,3 +1,4 @@
+import { compararVuelta, textoTiempo } from '../../lib/intervalos'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
@@ -103,6 +104,17 @@ export default function EvaluarSesion() {
               {r.datos_crudos?.titulo && <p className="text-xs text-texto-2">“{r.datos_crudos.titulo}”</p>}
               {r.datos_crudos?.desnivel_m ? <p className="text-xs text-texto-2">↑ {r.datos_crudos.desnivel_m} m de desnivel</p> : null}
               {r.distancia_km && <p className="text-base font-semibold">{formatoKm(r.distancia_km)} km</p>}
+              {r.reps_hechas != null && s.reps && (
+                <p className={`font-semibold ${r.reps_hechas >= s.reps ? 'text-ok' : 'text-[#9A6B00]'}`}>
+                  🔁 {r.reps_hechas}/{s.reps} repeticiones
+                </p>
+              )}
+              {r.rep_prom_seg && (
+                <p className={claseVuelta(compararVuelta(r.rep_prom_seg, s.rep_seg_min, s.rep_seg_max))}>
+                  Vuelta prom. {textoTiempo(r.rep_prom_seg)}
+                  {s.rep_seg_min || s.rep_seg_max ? <span className="text-texto-2"> · objetivo {formatoRango(s.rep_seg_min ?? null, s.rep_seg_max ?? null)}</span> : null}
+                </p>
+              )}
               {r.duracion_seg && <p>{formatoDuracion(r.duracion_seg)}</p>}
               {(r.calentamiento_km || r.calentamiento_min) && (
                 <p className="text-sm text-texto-2">
@@ -229,3 +241,5 @@ export default function EvaluarSesion() {
 
 const claseFc = (c: ReturnType<typeof compararFc>) => (c === 'en_rango' ? 'text-ok' : c ? 'text-mal' : '')
 const claseRitmo = (c: ReturnType<typeof compararRitmo>) => (c === 'en_rango' ? 'text-ok' : c === 'lento' || c === 'rapido' ? 'text-mal' : '')
+
+const claseVuelta = (c: ReturnType<typeof compararVuelta>) => (c === 'en_rango' ? 'font-semibold text-ok' : c ? 'font-semibold text-mal' : '')

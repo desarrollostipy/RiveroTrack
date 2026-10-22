@@ -1,3 +1,4 @@
+import { textoReps, textoTiempo } from '../lib/intervalos'
 import type { ActividadExtra } from '../lib/extras'
 import { ChipExtra } from './ActividadesExtra'
 import { kmCorridos } from '../lib/extras'
@@ -75,6 +76,8 @@ export function LeyendaCuadritos() {
 export function ObjetivosSesion({ s, grande = false, sinNotas = false }: { s: SesionPlan; grande?: boolean; sinNotas?: boolean }) {
   if (s.tipo === 'descanso') return s.notas && !sinNotas ? <p className="text-sm text-texto-2">📝 {s.notas}</p> : null
   const items: { icono: string; texto: string; etiqueta: string; clase?: string }[] = []
+  const reps = textoReps(s)
+  if (reps) items.push({ icono: '🔁', texto: reps, etiqueta: 'Repeticiones' })
   if (s.distancia_km) items.push({ icono: '📏', texto: `${formatoKm(s.distancia_km)} km`, etiqueta: 'Distancia' })
   if (s.duracion_min) items.push({ icono: '⏱', texto: `${s.duracion_min} min`, etiqueta: 'Duración' })
   if (s.ritmo_min_seg || s.ritmo_max_seg) items.push({ icono: '⚡', texto: `${formatoRango(s.ritmo_min_seg, s.ritmo_max_seg)} /km`, etiqueta: 'Ritmo' })
@@ -94,7 +97,7 @@ export function ObjetivosSesion({ s, grande = false, sinNotas = false }: { s: Se
           ))}
         </ul>
       )}
-      {s.estructura && <p className={`${grande ? 'text-base' : 'text-sm'} text-tinta`}>{s.estructura}</p>}
+      {s.estructura && s.estructura !== reps && <p className={`${grande ? 'text-base' : 'text-sm'} text-tinta`}>{s.estructura}</p>}
       {s.notas && !sinNotas && <p className="rounded-xl bg-azul/5 px-3 py-2 text-sm">📝 {s.notas}</p>}
     </div>
   )
@@ -105,6 +108,8 @@ export function TextoRegistro({ s }: { s: SesionCompleta }) {
   const r = s.registro
   if (!r) return null
   const partes = [
+    r.reps_hechas && s.reps ? `${r.reps_hechas}/${s.reps} rep.` : null,
+    r.rep_prom_seg ? `vuelta ${textoTiempo(r.rep_prom_seg)}` : null,
     r.distancia_km ? `${formatoKm(r.distancia_km)} km` : null,
     r.ritmo_prom_seg ? `${formatoRitmo(r.ritmo_prom_seg)}/km` : null,
     !r.distancia_km && r.duracion_seg ? formatoDuracion(r.duracion_seg) : null,

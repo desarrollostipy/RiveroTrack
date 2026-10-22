@@ -135,7 +135,7 @@ export default function MiSemana() {
                       nombreArchivo="rivero-entrenamiento.png"
                       etiqueta="📤 Compartir entrenamiento"
                       generar={(estilo) =>
-                        imagenDeSesion({ estilo, registro: s.registro!, tipo: tipo(s.tipo).nombre, titulo: s.resumen || tipo(s.tipo).nombre, nombre: alumno.nombre, planKm: s.distancia_km })
+                        imagenDeSesion({ estilo, registro: { ...s.registro!, rep_m: s.rep_m ?? null }, tipo: tipo(s.tipo).nombre, titulo: s.resumen || tipo(s.tipo).nombre, nombre: alumno.nombre, planKm: s.distancia_km })
                       }
                     />
                   </div>

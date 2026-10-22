@@ -38,6 +38,7 @@ function AccesosAlumno() {
   const enlaces = [
     { a: '/salud', icono: '❤️', titulo: 'Mi salud', texto: 'Bienestar, molestias, pulso y ficha médica' },
     { a: '/zapatillas', icono: '👟', titulo: 'Mis zapatillas', texto: 'Kilómetros de cada par' },
+    { a: '/pagos', icono: '💳', titulo: 'Mis pagos', texto: 'Cuotas e informar transferencias' },
   ]
   return (
     <div className="grid grid-cols-2 gap-2">

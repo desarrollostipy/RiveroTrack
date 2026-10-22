@@ -41,6 +41,8 @@ type AccionAcceso =
       altura_cm: number | null
       peso_kg: number | null
       comentario: string | null
+      acepta_privacidad: boolean
+      sitio_web: string
     }
 
 export const gestionarAcceso = <T = { ok: true; pin?: string }>(pedido: AccionAcceso) =>

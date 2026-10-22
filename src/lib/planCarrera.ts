@@ -3,9 +3,10 @@
 import { diaSemana, lunesDe, sumarDias } from './fechas'
 import { formatoDuracion, formatoKm } from './formato'
 import { estrategiaCarrera } from './comunidad'
+import { kmReps, textoReps } from './intervalos'
 import type { SemanaCompleta, SesionPlan, TipoSesion } from './tipos'
 
-export type SesionNueva = Pick<SesionPlan, 'fecha' | 'turno' | 'tipo' | 'resumen' | 'distancia_km' | 'duracion_min' | 'ritmo_min_seg' | 'ritmo_max_seg' | 'estructura' | 'notas'>
+export type SesionNueva = Pick<SesionPlan, 'fecha' | 'turno' | 'tipo' | 'resumen' | 'distancia_km' | 'duracion_min' | 'ritmo_min_seg' | 'ritmo_max_seg' | 'estructura' | 'notas' | 'reps' | 'rep_m' | 'rep_seg_min' | 'rep_seg_max' | 'rec_seg' | 'rec_tipo'>
 export type SemanaNueva = { lunes: string; factor: number; titulo: string; nota: string; sesiones: SesionNueva[] }
 
 type Competencia = { nombre: string; fecha: string; distancia_km: number | null; tiempo_objetivo_seg: number | null }
@@ -13,6 +14,12 @@ type Competencia = { nombre: string; fecha: string; distancia_km: number | null;
 const redondeo = (n: number, paso: number) => Math.max(paso, Math.round(n / paso) * paso)
 
 function escalar(s: SesionPlan, fecha: string, factor: number, nota: string): SesionNueva {
+  // Pista y series: se bajan las repeticiones (la intensidad de cada una se mantiene).
+  if (s.reps && s.rep_m) {
+    const reps = Math.max(1, Math.round(s.reps * factor))
+    const r = { reps, rep_m: s.rep_m, rep_seg_min: s.rep_seg_min ?? null, rep_seg_max: s.rep_seg_max ?? null, rec_seg: s.rec_seg ?? null, rec_tipo: s.rec_tipo ?? null }
+    return { fecha, turno: s.turno, tipo: s.tipo, resumen: `${reps}×${s.rep_m}`, distancia_km: kmReps(reps, s.rep_m), duracion_min: null, ritmo_min_seg: s.ritmo_min_seg, ritmo_max_seg: s.ritmo_max_seg, estructura: textoReps(r), notas: nota, ...r }
+  }
   const km = s.distancia_km ? redondeo(Number(s.distancia_km) * factor, 0.5) : null
   const min = s.duracion_min ? redondeo(s.duracion_min * factor, 5) : null
   return {
@@ -26,6 +33,7 @@ function escalar(s: SesionPlan, fecha: string, factor: number, nota: string): Se
     ritmo_max_seg: s.ritmo_max_seg,
     estructura: s.estructura ? `${s.estructura} (reducir volumen ~${Math.round((1 - factor) * 100)}%)` : null,
     notas: nota,
+    reps: null, rep_m: null, rep_seg_min: null, rep_seg_max: null, rec_seg: null, rec_tipo: null,
   }
 }
 
@@ -73,6 +81,7 @@ export function armarPlanCarrera(c: Competencia, base: SemanaCompleta, tipos: Ti
     ritmo_max_seg: est ? Math.round(est.ritmo + 5) : null,
     estructura: est ? est.tramos.map((t) => `${t.nombre}: km ${formatoKm(t.desde)}–${formatoKm(t.hasta)}`).join(' · ') : null,
     notas: est ? `Objetivo ${formatoDuracion(c.tiempo_objetivo_seg!)}. Mirá el modo carrera en la app.` : '¡A disfrutarla!',
+    reps: null, rep_m: null, rep_seg_min: null, rep_seg_max: null, rec_seg: null, rec_tipo: null,
   }
   semanas.push({ lunes: lunesCarrera, factor: 0.4, titulo: 'Semana de la carrera', nota: 'Descanso el día anterior. Comé y dormí bien. ¡Confiá en el trabajo hecho!', sesiones: [...previas, carrera] })
   return semanas

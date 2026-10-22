@@ -11,6 +11,7 @@ import type { Molestia, SesionPlan, SesionReg, Split } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { BotonCompartir, imagenDeSesion } from '../../components/Compartir'
 import { useZapatillas } from '../../components/salud/Zapatillas'
+import { compararVuelta, kmReps, textoDistanciaRep, textoReps } from '../../lib/intervalos'
 import { ObjetivosSesion, useTipos } from '../../components/Semana'
 import { AreaTexto, Boton, Campo, Cargando, EtiquetaTipo, MensajeError, Opciones, Pestanas, Tarjeta } from '../../components/ui'
 
@@ -54,6 +55,8 @@ export default function RegistrarSesion() {
   const [tiempo, setTiempo] = useState('')
   const [fcProm, setFcProm] = useState('')
   const [fcMax, setFcMax] = useState('')
+  const [repsHechas, setRepsHechas] = useState('')
+  const [vuelta, setVuelta] = useState('')
   const [calKm, setCalKm] = useState('')
   const [calMin, setCalMin] = useState('')
   const [aflKm, setAflKm] = useState('')
@@ -79,8 +82,11 @@ export default function RegistrarSesion() {
         supabase.from('sesiones_planificadas').select('*').eq('id', sesionId!).maybeSingle(),
         supabase.from('sesiones_registradas').select('*').eq('sesion_planificada_id', sesionId!).maybeSingle(),
       ])
-      setSesion(s.data as SesionPlan | null)
+      const plan = s.data as SesionPlan | null
+      setSesion(plan)
       const reg = r.data as SesionReg | null
+      if (plan?.reps) setRepsHechas(String(reg?.reps_hechas ?? plan.reps))
+      if (reg?.rep_prom_seg) setVuelta(formatoDuracion(reg.rep_prom_seg))
       setExistente(reg)
       if (reg) {
         setDistancia(reg.distancia_km ? String(reg.distancia_km).replace('.', ',') : '')
@@ -106,6 +112,17 @@ export default function RegistrarSesion() {
   const enUso = (zapatillas ?? []).filter((z) => !z.retirada)
   const calzadoElegido = calzado === undefined ? (enUso.find((z) => z.principal)?.id ?? null) : calzado
 
+  // Pista / series: con repeticiones hechas y vuelta promedio salen la distancia y el tiempo (sin recuperación).
+  const conReps = !!(sesion?.reps && sesion.rep_m)
+  function cambiarReps(n: string, v: string) {
+    setRepsHechas(n)
+    setVuelta(v)
+    const cant = leerNumero(n)
+    const seg = leerDuracion(v)
+    if (cant && sesion?.rep_m) setDistancia(String(kmReps(cant, sesion.rep_m)).replace('.', ','))
+    if (cant && seg) setTiempo(formatoDuracion(Math.round(cant * seg)))
+  }
+
   const km = leerNumero(distancia)
   // Calentamiento y afloje: suman km, pero no cambian el ritmo de la parte principal.
   const extraKm = (t: string) => (t.trim() ? leerNumero(t) : null)
@@ -125,6 +142,7 @@ export default function RegistrarSesion() {
     setLeyendo(false)
     if (r.error !== null) return setError(r.error)
     setGarmin(r.datos)
+    if (conReps) return
     setDistancia(String(r.datos.distancia_km).replace('.', ','))
     setTiempo(formatoDuracion(r.datos.duracion_seg))
   }
@@ -134,6 +152,7 @@ export default function RegistrarSesion() {
     if (!km || km <= 0) return setError('Ingresá la distancia.')
     if (!seg || seg <= 0) return setError('Ingresá el tiempo, por ejemplo 52:30 o 1:05:10.')
     if (!sensacion) return setError('Elegí cómo te sentiste.')
+    if (conReps && repsHechas.trim() && leerNumero(repsHechas) === null) return setError('Escribí cuántas repeticiones hiciste.')
     for (const [v, nombre] of [[calKm, 'los km del calentamiento'], [calMin, 'los minutos del calentamiento'], [aflKm, 'los km del afloje'], [aflMin, 'los minutos del afloje']] as const) {
       const n = v.trim() ? leerNumero(v) : null
       if (v.trim() && (!n || n <= 0)) return setError(`Revisá ${nombre}: tiene que ser un número mayor a cero.`)
@@ -151,6 +170,8 @@ export default function RegistrarSesion() {
       ritmo_prom_seg: ritmo,
       fc_prom: leerNumero(fcProm),
       fc_max: leerNumero(fcMax),
+      reps_hechas: conReps && repsHechas.trim() ? Math.round(leerNumero(repsHechas) ?? 0) : null,
+      rep_prom_seg: conReps ? leerDuracion(vuelta) : null,
       calentamiento_km: extraKm(calKm) ? Math.round(extraKm(calKm)! * 100) / 100 : null,
       calentamiento_min: extraMin(calMin) ? Math.round(extraMin(calMin)!) : null,
       afloje_km: extraKm(aflKm) ? Math.round(extraKm(aflKm)! * 100) / 100 : null,
@@ -214,7 +235,7 @@ export default function RegistrarSesion() {
             imagenDeSesion({
               estilo,
               planKm: sesion.distancia_km,
-              registro: { fecha: sesion.fecha, distancia_km: km, calentamiento_km: extraKm(calKm), afloje_km: extraKm(aflKm), duracion_seg: seg, ritmo_prom_seg: ritmo, fc_prom: leerNumero(fcProm), sensacion, splits: garmin?.splits ?? existente?.splits ?? [], datos_crudos: garmin ? { desnivel_m: garmin.desnivel_m } : existente?.datos_crudos },
+              registro: { reps_hechas: conReps ? leerNumero(repsHechas) : null, rep_prom_seg: conReps ? leerDuracion(vuelta) : null, rep_m: sesion.rep_m ?? null, fecha: sesion.fecha, distancia_km: km, calentamiento_km: extraKm(calKm), afloje_km: extraKm(aflKm), duracion_seg: seg, ritmo_prom_seg: ritmo, fc_prom: leerNumero(fcProm), sensacion, splits: garmin?.splits ?? existente?.splits ?? [], datos_crudos: garmin ? { desnivel_m: garmin.desnivel_m } : existente?.datos_crudos },
               tipo: tipo(sesion.tipo).nombre,
               titulo: sesion.resumen || tipo(sesion.tipo).nombre,
               nombre: alumno.nombre,
@@ -293,9 +314,36 @@ export default function RegistrarSesion() {
         </Tarjeta>
       )}
 
+      {conReps && sesion && (
+        <div className="flex flex-col gap-3 rounded-2xl border-2 border-azul/30 bg-azul/5 p-3">
+          <p className="font-semibold">🔁 Repeticiones</p>
+          <p className="-mt-2 text-sm text-texto-2">
+            Objetivo: <b className="text-tinta">{textoReps(sesion)}</b>
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Campo id="reg-reps" label="¿Cuántas hiciste?" inputMode="numeric" value={repsHechas} onChange={(e) => cambiarReps(e.target.value.replace(/\D/g, '').slice(0, 3), vuelta)} />
+            <Campo id="reg-vuelta" label={`Vuelta promedio (${textoDistanciaRep(sesion.rep_m!)})`} placeholder="1:46" inputMode="numeric" value={vuelta} onChange={(e) => cambiarReps(repsHechas, formatearTiempoTipeo(e.target.value))} />
+          </div>
+          {(() => {
+            const prom = leerDuracion(vuelta)
+            const c = prom ? compararVuelta(prom, sesion.rep_seg_min, sesion.rep_seg_max) : null
+            if (!c) return null
+            return (
+              <p className={`text-sm font-semibold ${c === 'en_rango' ? 'text-ok' : 'text-[#9A6B00]'}`}>
+                {c === 'en_rango' ? '✓ Dentro del objetivo' : c === 'rapido' ? '⚡ Más rápido que el objetivo' : '🐢 Más lento que el objetivo'}
+              </p>
+            )
+          })()}
+          <p className="text-xs text-texto-2">
+            La distancia y el tiempo de abajo se calculan solos con tus repeticiones (sin contar la recuperación). Si hiciste algo distinto, corregilos.
+            {garmin && ' El link de Garmin quedó guardado, pero su total incluye las recuperaciones: por eso no lo usamos para el ritmo.'}
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
-        <Campo id="reg-km" label="Distancia principal (km)" inputMode="decimal" value={distancia} onChange={(e) => setDistancia(e.target.value)} />
-        <Campo id="reg-tiempo" label="Tiempo" placeholder="52:30" value={tiempo} onChange={(e) => setTiempo(e.target.value)} />
+        <Campo id="reg-km" label={conReps ? 'Distancia de las repeticiones (km)' : 'Distancia principal (km)'} inputMode="decimal" value={distancia} onChange={(e) => setDistancia(e.target.value)} />
+        <Campo id="reg-tiempo" label={conReps ? 'Tiempo sin recuperación' : 'Tiempo'} placeholder="52:30" value={tiempo} onChange={(e) => setTiempo(e.target.value)} />
         <Campo id="reg-fcp" label="FC promedio" inputMode="numeric" value={fcProm} onChange={(e) => setFcProm(e.target.value.replace(/\D/g, ''))} />
         <Campo id="reg-fcm" label="FC máxima" inputMode="numeric" value={fcMax} onChange={(e) => setFcMax(e.target.value.replace(/\D/g, ''))} />
       </div>
@@ -353,4 +401,11 @@ export default function RegistrarSesion() {
       </Boton>
     </Pantalla>
   )
+}
+
+// "146" → "1:46" mientras se tipea.
+function formatearTiempoTipeo(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 4)
+  if (d.length <= 2) return d
+  return `${d.slice(0, d.length - 2)}:${d.slice(-2)}`
 }

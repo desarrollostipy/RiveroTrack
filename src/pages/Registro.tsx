@@ -5,6 +5,7 @@ import { esCiValida, esPinValido, limpiarCi } from '../lib/acceso'
 import { leerNumero } from '../lib/formato'
 import type { Nivel } from '../lib/tipos'
 import { Pantalla } from '../components/Pantalla'
+import { AvisoPrivacidad } from '../components/AvisoPrivacidad'
 import { AreaTexto, Boton, Campo, MensajeError, Opciones, Tarjeta } from '../components/ui'
 
 // Registro de alumnos nuevos desde la pantalla de ingreso.
@@ -23,6 +24,9 @@ export default function Registro() {
   const [comentario, setComentario] = useState('')
   const [pin, setPin] = useState('')
   const [pin2, setPin2] = useState('')
+  const [acepta, setAcepta] = useState(false)
+  const [verAviso, setVerAviso] = useState(false)
+  const [sitioWeb, setSitioWeb] = useState('') // campo trampa para robots
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
 
@@ -34,6 +38,7 @@ export default function Registro() {
     if (!sexo) return setError('Elegí tu sexo.')
     if (!esPinValido(pin)) return setError('El PIN tiene que tener 6 números.')
     if (pin !== pin2) return setError('Los dos PIN no coinciden.')
+    if (!acepta) return setError('Para registrarte tenés que aceptar el aviso de privacidad.')
 
     setEnviando(true)
     const r = await gestionarAcceso({
@@ -49,6 +54,8 @@ export default function Registro() {
       altura_cm: leerNumero(altura),
       peso_kg: leerNumero(peso),
       comentario: comentario.trim() || null,
+      acepta_privacidad: acepta,
+      sitio_web: sitioWeb,
     })
     if (r.error !== null) {
       setEnviando(false)
@@ -135,11 +142,29 @@ export default function Registro() {
             </div>
           </Tarjeta>
 
+          {/* Invisible para las personas: si un robot lo completa, la solicitud se descarta. */}
+          <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+            <label htmlFor="r-sitio">Sitio web</label>
+            <input id="r-sitio" tabIndex={-1} autoComplete="off" value={sitioWeb} onChange={(e) => setSitioWeb(e.target.value)} />
+          </div>
+
+          <label className="flex items-start gap-3 text-sm">
+            <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-azul)]" checked={acepta} onChange={(e) => setAcepta(e.target.checked)} />
+            <span>
+              Leí y acepto el{' '}
+              <button type="button" className="font-semibold text-azul underline" onClick={() => setVerAviso(true)}>
+                aviso de privacidad
+              </button>
+              : mis datos los vemos solo yo y mi entrenador.
+            </span>
+          </label>
+
           <MensajeError>{error}</MensajeError>
           <Boton type="submit" disabled={enviando} className="min-h-12">
             {enviando ? 'Enviando…' : 'Enviar solicitud'}
           </Boton>
         </form>
+        <AvisoPrivacidad abierto={verAviso} onCerrar={() => setVerAviso(false)} />
       </Pantalla>
     </main>
   )

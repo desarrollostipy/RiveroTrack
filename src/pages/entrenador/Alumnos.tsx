@@ -34,9 +34,11 @@ export default function Alumnos() {
   const [solicitudes, setSolicitudes] = useState(0)
   const [carrerasPendientes, setCarrerasPendientes] = useState(0)
   const [avisos, setAvisos] = useState<{ rojas: number; total: number } | null>(null)
+  const [comprobantes, setComprobantes] = useState(0)
 
   useEffect(() => {
     cargarAlertas().then(({ alertas }) => setAvisos({ rojas: alertas.filter((a) => a.nivel === 'rojo').length, total: alertas.length }))
+    supabase.from('comprobantes_pago').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente').then(({ count }) => setComprobantes(count ?? 0))
   }, [])
 
   const cargar = useCallback(async () => {
@@ -145,6 +147,14 @@ export default function Alumnos() {
           </span>
         </Link>
       </div>
+      {comprobantes > 0 && (
+        <Link to="/finanzas" className="flex min-h-14 items-center justify-between gap-2 rounded-2xl bg-ok px-4 py-3 font-semibold text-white">
+          <span>
+            🧾 {comprobantes} {comprobantes === 1 ? 'pago para revisar' : 'pagos para revisar'}
+          </span>
+          <span className="rounded-xl bg-white/20 px-3 py-1 text-sm">Revisar</span>
+        </Link>
+      )}
       {solicitudes > 0 && (
         <Link
           to="/solicitudes"

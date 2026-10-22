@@ -8,6 +8,7 @@ import { formatoFecha, formatoGs, leerMonto, miles } from '../../lib/formato'
 import type { Alumno, Cuota, Pago } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { FormPago } from '../../components/FormPago'
+import { RevisarComprobantes } from '../../components/Comprobantes'
 import { linkWhatsApp, textoRecordatorioCuota } from '../../lib/whatsapp'
 import { Boton, Campo, Cargando, Hoja, Indicador, MensajeError, MensajeOk, Opciones, Vacio } from '../../components/ui'
 
@@ -70,6 +71,10 @@ export default function Cuentas() {
       }
     >
       <MensajeOk>{aviso}</MensajeOk>
+      <RevisarComprobantes onCambio={cargar} />
+      <Link to="/finanzas" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-azul font-semibold text-azul">
+        📊 Finanzas y exportar a Excel
+      </Link>
       <div className="grid grid-cols-2 gap-2">
         <Indicador
           tono="mal"

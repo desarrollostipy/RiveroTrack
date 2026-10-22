@@ -45,6 +45,8 @@ const EventosEntrenador = pantalla(() => import('./pages/entrenador/EventosEntre
 const MensajeMasivo = pantalla(() => import('./pages/entrenador/MensajeMasivo'))
 const RankingEntrenador = pantalla(() => import('./pages/entrenador/RankingEntrenador'))
 const PlanCarrera = pantalla(() => import('./pages/entrenador/PlanCarrera'))
+const Finanzas = pantalla(() => import('./pages/entrenador/Finanzas'))
+const MisPagos = pantalla(() => import('./pages/alumno/MisPagos'))
 const Herramientas = pantalla(() => import('./pages/entrenador/Herramientas'))
 const Anuncios = pantalla(() => import('./pages/entrenador/Anuncios'))
 const Grupos = pantalla(() => import('./pages/entrenador/Grupos'))
@@ -149,6 +151,7 @@ function RutasEntrenador({ miId }: { miId: string }) {
         <Route path="/mensaje-masivo" element={<MensajeMasivo />} />
         <Route path="/ranking" element={<RankingEntrenador />} />
         <Route path="/plan-carrera/:id" element={<PlanCarrera />} />
+        <Route path="/finanzas" element={<Finanzas />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="*" element={<Navigate to="/alumnos" replace />} />
       </Routes>
@@ -175,6 +178,7 @@ function RutasAlumno({ miId }: { miId: string }) {
         <Route path="/zapatillas" element={<MisZapatillas />} />
         <Route path="/mi-anio" element={<MiAnio />} />
         <Route path="/carrera/:id" element={<ModoCarrera />} />
+        <Route path="/pagos" element={<MisPagos />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="*" element={<Navigate to="/hoy" replace />} />
       </Routes>
