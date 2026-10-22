@@ -6,14 +6,7 @@
     <meta name="theme-color" content="#0B1B3A" />
     <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
-    <script>
-      // Aplica el modo día / noche antes de dibujar la página (evita un parpadeo).
-      try {
-        var t = localStorage.getItem('rivero-tema')
-        var o = t === 'oscuro' || (t !== 'claro' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-        document.documentElement.dataset.theme = o ? 'oscuro' : 'claro'
-      } catch (e) {}
-    </script>
+    <script src="/tema-inicial.js"></script>
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
