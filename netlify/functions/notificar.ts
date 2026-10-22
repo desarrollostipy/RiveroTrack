@@ -158,6 +158,28 @@ export default async (req: Request) => {
       break
     }
 
+    case 'comprobante':
+    case 'comprobante_revisado': {
+      const { data: c } = await db.from('comprobantes_pago').select('alumno_id, monto, estado, motivo').eq('id', String(p.comprobante_id)).maybeSingle()
+      if (!c) break
+      const a = await perfilDeAlumno(c.alumno_id)
+      const monto = 'Gs. ' + Number(c.monto).toLocaleString('es-PY')
+      if (p.tipo === 'comprobante') {
+        // El alumno avisa de su propio comprobante.
+        if (!a || a.profile_id !== yo.id) return json({ error: 'Sin permiso' }, 403)
+        enviadas = await enviarA(db, [entrenador?.id as string], { titulo: `🧾 ${primerNombre(a.nombre)} informó un pago`, cuerpo: `${monto} · revisalo en Finanzas`, url: '/finanzas' })
+      } else {
+        if (!esEntrenador) return json({ error: 'Sin permiso' }, 403)
+        const aprobado = c.estado === 'aprobado'
+        enviadas = await enviarA(db, [a?.profile_id as string], {
+          titulo: aprobado ? '✅ Tu pago fue aprobado' : '⚠️ Revisá tu comprobante',
+          cuerpo: aprobado ? `${monto} · ¡Gracias!` : corto(c.motivo ?? 'Tu entrenador no pudo aprobarlo.'),
+          url: '/pagos',
+        })
+      }
+      break
+    }
+
     default:
       return json({ error: 'Tipo de aviso desconocido' }, 400)
   }

@@ -54,6 +54,8 @@ const numero = (v: unknown) => (v === null || v === undefined || v === '' ? null
 
 // El alumno se registra solo. Queda pendiente hasta que el entrenador lo acepta.
 async function solicitarAlta(admin: SupabaseClient, p: Record<string, unknown>) {
+  // Robots: "sitio_web" es un campo oculto; una persona nunca lo completa.
+  if (texto(p.sitio_web)) return respuesta({ ok: true })
   const ci = limpiarCi(String(p.ci ?? ''))
   const nombre = texto(p.nombre, 80)
   const pin = String(p.pin ?? '')
@@ -69,6 +71,11 @@ async function solicitarAlta(admin: SupabaseClient, p: Record<string, unknown>) 
   const nacimiento = /^\d{4}-\d{2}-\d{2}$/.test(String(p.fecha_nacimiento ?? '')) ? String(p.fecha_nacimiento) : null
   if (altura !== null && !(altura >= 100 && altura <= 230)) return error('La altura va de 100 a 230 cm.')
   if (peso !== null && !(peso >= 25 && peso <= 250)) return error('Revisá el peso.')
+  if (p.acepta_privacidad !== true) return error('Para registrarte tenés que aceptar el aviso de privacidad.')
+
+  // Freno contra registros en masa: un tope de solicitudes esperando revisión.
+  const { count: enEspera } = await admin.from('solicitudes_alta').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente')
+  if ((enEspera ?? 0) >= 40) return error('Hay muchas solicitudes esperando revisión. Avisale a tu entrenador o probá más tarde.', 429)
 
   // Una CI = una persona.
   const { data: existente } = await admin.from('profiles').select('id').eq('ci', ci).maybeSingle()
@@ -92,6 +99,7 @@ async function solicitarAlta(admin: SupabaseClient, p: Record<string, unknown>) 
     altura_cm: altura,
     peso_kg: peso === null ? null : Math.round(peso * 10) / 10,
     comentario: texto(p.comentario, 500),
+    acepta_privacidad_at: new Date().toISOString(),
   })
   if (errSolicitud) {
     await admin.auth.admin.deleteUser(r.id)
