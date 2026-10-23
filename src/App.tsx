@@ -35,6 +35,7 @@ const Perfil = pantalla(() => import('./pages/Perfil'))
 const Calculadora = pantalla(() => import('./pages/Calculadora'))
 const Salud = pantalla(() => import('./pages/alumno/Salud'))
 const MisZapatillas = pantalla(() => import('./pages/alumno/MisZapatillas'))
+const Ciclo = pantalla(() => import('./pages/alumno/Ciclo'))
 const Agenda = pantalla(() => import('./pages/entrenador/Agenda'))
 const Alertas = pantalla(() => import('./pages/entrenador/Alertas'))
 const Emergencias = pantalla(() => import('./pages/entrenador/Emergencias'))
@@ -176,6 +177,7 @@ function RutasAlumno({ miId }: { miId: string }) {
         <Route path="/calculadora" element={<Calculadora />} />
         <Route path="/salud" element={<Salud />} />
         <Route path="/zapatillas" element={<MisZapatillas />} />
+        <Route path="/ciclo" element={<Ciclo />} />
         <Route path="/mi-anio" element={<MiAnio />} />
         <Route path="/carrera/:id" element={<ModoCarrera />} />
         <Route path="/pagos" element={<MisPagos />} />

@@ -11,6 +11,8 @@ import { useTipos } from '../../components/Semana'
 import { EmojisBienestar } from '../../components/salud/Bienestar'
 import { DEPORTES, kmCorridos, nombreActividad, type ActividadExtra } from '../../lib/extras'
 import { Avatar, Cargando, EtiquetaTipo, SelectorPeriodo, Tarjeta, Vacio } from '../../components/ui'
+import { cargarCiclosCompartidos, faseCompartida, sugerenciaEntrenador } from '../../lib/ciclo'
+import { ChipFase } from '../../components/ciclo/CicloEntrenador'
 
 type Fila = { alumnoId: string; nombre: string; avatar: string | null; sesiones: SesionCompleta[] }
 
@@ -19,12 +21,13 @@ export default function Agenda() {
   const hoy = hoyPY()
   const [dia, setDia] = useState(hoy)
   const [semanas, setSemanas] = useState<SemanaCompleta[] | null>(null)
-  const [alumnos, setAlumnos] = useState<{ id: string; nombre: string; profile_id: string | null }[]>([])
+  const [alumnos, setAlumnos] = useState<{ id: string; nombre: string; profile_id: string | null; sexo: string; comparte_ciclo: boolean }[]>([])
   const [avatares, setAvatares] = useState<Record<string, string | null>>({})
   const [bienestar, setBienestar] = useState<Bienestar[]>([])
   const [molestias, setMolestias] = useState<Molestia[]>([])
   const [grupales, setGrupales] = useState<EntrenamientoGrupal[]>([])
   const [extras, setExtras] = useState<ActividadExtra[]>([])
+  const [ciclos, setCiclos] = useState<Awaited<ReturnType<typeof cargarCiclosCompartidos>>>(new Map())
   const { tipo } = useTipos()
   const lunes = lunesDe(dia)
 
@@ -35,13 +38,15 @@ export default function Agenda() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('alumnos').select('id, nombre, profile_id').eq('activo', true),
+      supabase.from('alumnos').select('id, nombre, profile_id, sexo, comparte_ciclo').eq('activo', true),
       supabase.from('profiles').select('id, avatar_url').eq('rol', 'alumno'),
       supabase.from('molestias').select('*').is('resuelta_at', null),
     ]).then(([a, p, m]) => {
       setAlumnos((a.data ?? []) as typeof alumnos)
       setAvatares(Object.fromEntries(((p.data ?? []) as { id: string; avatar_url: string | null }[]).map((x) => [x.id, x.avatar_url])))
       setMolestias((m.data ?? []) as Molestia[])
+      // Ciclo: solo de las alumnas que lo comparten (y no lo pausaron).
+      cargarCiclosCompartidos(((a.data ?? []) as typeof alumnos).filter((x) => x.sexo === 'F' && x.comparte_ciclo).map((x) => x.id)).then(setCiclos)
     })
   }, [])
 
@@ -132,6 +137,9 @@ export default function Agenda() {
             {filas.map((f) => {
               const b = bienestar.find((x) => x.alumno_id === f.alumnoId)
               const dolor = molestias.filter((m) => m.alumno_id === f.alumnoId).sort((x, y) => y.intensidad - x.intensidad)[0]
+              const c = ciclos.get(f.alumnoId)
+              const fase = c ? faseCompartida(c.registros, c.info, dia) : null
+              const consejo = c ? sugerenciaEntrenador(fase, c.sintomas.find((s) => s.fecha === dia)) : null
               return (
                 <li key={f.alumnoId}>
                   <Link to={`/alumnos/${f.alumnoId}`} className="flex gap-3 p-3 hover:bg-fondo">
@@ -169,6 +177,12 @@ export default function Agenda() {
                             {DEPORTES[x.deporte].emoji} {nombreActividad(x)} · {x.duracion_min} min
                           </p>
                         ))}
+                      {fase && (
+                        <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ciclo">
+                          <ChipFase e={fase} />
+                          {consejo && <span>{consejo}</span>}
+                        </p>
+                      )}
                       {dolor && (
                         <p className={`mt-1 text-sm font-semibold ${dolor.intensidad >= 7 ? 'text-mal' : 'text-[#9A6B00]'}`}>
                           🩹 {textoMolestia(dolor)} · {dolor.intensidad}/10

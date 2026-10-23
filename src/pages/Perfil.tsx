@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useSesion } from '../lib/sesion'
+import { useMiAlumno } from '../lib/alumno'
 import { mensajeError } from '../lib/consultas'
 import { esPinValido } from '../lib/acceso'
 import { guardarTema, preferenciaTema, type PreferenciaTema } from '../lib/tema'
@@ -35,7 +36,9 @@ export default function Perfil() {
 
 // Mi salud y mis zapatillas (solo alumnos).
 function AccesosAlumno() {
+  const { alumno } = useMiAlumno()
   const enlaces = [
+    ...(alumno.sexo === 'F' ? [{ a: '/ciclo', icono: '🌸', titulo: 'Mi ciclo', texto: 'Calendario, síntomas y privacidad' }] : []),
     { a: '/salud', icono: '❤️', titulo: 'Mi salud', texto: 'Bienestar, molestias, pulso y ficha médica' },
     { a: '/zapatillas', icono: '👟', titulo: 'Mis zapatillas', texto: 'Kilómetros de cada par' },
     { a: '/pagos', icono: '💳', titulo: 'Mis pagos', texto: 'Cuotas e informar transferencias' },

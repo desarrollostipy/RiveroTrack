@@ -8,6 +8,8 @@ import { formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo, leerDu
 import { esIntervalos, kmReps, REC_TIPOS, ritmoDeVuelta, textoReps, textoTiempo, type RecTipo } from '../../lib/intervalos'
 import type { Alumno, Plan, Plantilla, SesionPlan } from '../../lib/tipos'
 import { notificar } from '../../lib/push'
+import { useCicloAlumna } from '../../lib/ciclo'
+import { ChipFase } from '../../components/ciclo/CicloEntrenador'
 import { usePlantillas } from './Plantillas'
 import { CopiarAOtros } from './CopiarAOtros'
 import { Pantalla } from '../../components/Pantalla'
@@ -141,6 +143,8 @@ export default function EditorPlan() {
   const [aviso, setAviso] = useState('')
   const [copiando, setCopiando] = useState(false)
   const { plantillas, recargar: recargarPlantillas } = usePlantillas()
+  // Fase estimada de cada día (solo si la alumna comparte su ciclo).
+  const ciclo = useCicloAlumna(alumnoId!, alumno?.sexo === 'F' && !!alumno.comparte_ciclo)
 
   // ---------- Carga ----------
   useEffect(() => {
@@ -427,7 +431,7 @@ export default function EditorPlan() {
                 >
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold">
-                      {DIAS[i]} <span className="font-normal text-texto-2">{formatoFecha(fecha)}</span>
+                      {DIAS[i]} <span className="font-normal text-texto-2">{formatoFecha(fecha)}</span> <ChipFase e={ciclo.fase(fecha)} corto />
                     </span>
                     {delDia.length === 0 && <span className="text-sm text-texto-2">Sin sesión (descanso)</span>}
                     {delDia.map((b) => (

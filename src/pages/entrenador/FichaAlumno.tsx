@@ -3,10 +3,10 @@ import { pantalla } from '../../lib/version'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { cargarAlumno, mensajeError } from '../../lib/consultas'
-import { estadoDeuda, estimarCiclo } from '../../lib/calculos'
+import { estadoDeuda } from '../../lib/calculos'
 import { diasEntre, edad, fechaLarga, hoyPY } from '../../lib/fechas'
 import { conSigno, formatoFecha, formatoPeso, leerNumero } from '../../lib/formato'
-import type { Alumno, Ciclo, Cuota, Medicion, Pago } from '../../lib/tipos'
+import type { Alumno, Cuota, Medicion, Pago } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { Logros, useHistorial } from '../../components/Logros'
 import { Records } from '../../components/Records'
@@ -19,6 +19,7 @@ import { TabPagos } from './ficha/TabPagos'
 import { Acceso } from './ficha/Acceso'
 import { Competencias, Marcas } from './ficha/MarcasCompetencias'
 import { TabSalud } from './ficha/TabSalud'
+import { BannerCiclo } from '../../components/ciclo/CicloEntrenador'
 
 type Tab = 'semana' | 'salud' | 'pagos' | 'evolucion'
 
@@ -33,22 +34,19 @@ export default function FichaAlumno() {
   const [pesos, setPesos] = useState<Medicion[]>([])
   const [cuotas, setCuotas] = useState<Cuota[]>([])
   const [pagos, setPagos] = useState<Pago[]>([])
-  const [ciclos, setCiclos] = useState<Ciclo[]>([])
   const [versionMarcas, setVersionMarcas] = useState(0)
 
   const cargar = useCallback(async () => {
-    const [a, m, c, p, ci] = await Promise.all([
+    const [a, m, c, p] = await Promise.all([
       cargarAlumno(id!),
       supabase.from('mediciones').select('*').eq('alumno_id', id!).order('fecha'),
       supabase.from('cuotas').select('*').eq('alumno_id', id!).order('periodo', { ascending: false }),
       supabase.from('pagos').select('*').eq('alumno_id', id!).order('fecha', { ascending: false }),
-      supabase.from('ciclos_menstruales').select('*').eq('alumno_id', id!).order('fecha_inicio', { ascending: false }),
     ])
     setAlumno(a)
     setPesos((m.data ?? []) as Medicion[])
     setCuotas((c.data ?? []) as Cuota[])
     setPagos((p.data ?? []) as Pago[])
-    setCiclos((ci.data ?? []) as Ciclo[]) // RLS: solo llega si la alumna comparte
   }, [id])
 
   useEffect(() => {
@@ -65,7 +63,6 @@ export default function FichaAlumno() {
 
   const anios = edad(alumno.fecha_nacimiento, hoy)
   const deuda = estadoDeuda(cuotas, hoy)
-  const ciclo = alumno.sexo === 'F' && alumno.comparte_ciclo ? estimarCiclo(ciclos.map((c) => c.fecha_inicio), hoy) : null
 
   return (
     <Pantalla
@@ -96,16 +93,7 @@ export default function FichaAlumno() {
         {deuda.vencidas.length > 0 && <p className="text-sm opacity-90">{deuda.texto}</p>}
       </button>
 
-      {ciclo && (
-        <div className="rounded-2xl bg-ciclo-fondo px-4 py-3 text-ciclo">
-          <p className="font-semibold">
-            Ciclo: día {ciclo.dia} · fase {ciclo.fase}
-          </p>
-          <p className="text-sm">
-            Estimado · {ciclo.atrasado ? `próximo esperado el ${formatoFecha(ciclo.proximo)} (atrasado)` : `próximo ~${formatoFecha(ciclo.proximo)}`}
-          </p>
-        </div>
-      )}
+      <BannerCiclo alumnoId={alumno.id} activo={alumno.sexo === 'F' && alumno.comparte_ciclo} />
 
       <DatosFisicos alumno={alumno} pesos={pesos} onCambio={cargar} />
       <Competencias alumnoId={alumno.id} onMarca={() => setVersionMarcas((v) => v + 1)} />

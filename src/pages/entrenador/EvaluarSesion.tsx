@@ -4,7 +4,8 @@ import { useNavigate, useParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { mensajeError } from '../../lib/consultas'
 import { notificar } from '../../lib/push'
-import { compararFc, compararRitmo, estimarCiclo, kmPlanificados } from '../../lib/calculos'
+import { compararFc, compararRitmo, kmPlanificados } from '../../lib/calculos'
+import { faseCompartida, type InfoCiclo, type RegistroCiclo } from '../../lib/ciclo'
 import { DIAS, diaSemana } from '../../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo } from '../../lib/formato'
 import type { Alumno, Evaluacion, Resultado, SesionPlan, SesionReg } from '../../lib/tipos'
@@ -24,7 +25,7 @@ export default function EvaluarSesion() {
     evaluacion: Evaluacion | null
     alumno: Alumno
     molestia: string | null
-    ciclo: ReturnType<typeof estimarCiclo>
+    ciclo: ReturnType<typeof faseCompartida>
   } | null>(null)
   const [resultado, setResultado] = useState<Resultado | null>(null)
   const [comentario, setComentario] = useState('')
@@ -44,15 +45,17 @@ export default function EvaluarSesion() {
       const alumno = a.data as Alumno
       const registro = r.data as SesionReg | null
       let molestia: string | null = null
-      let ciclo = null
+      let ciclo: ReturnType<typeof faseCompartida> = null
       // RLS: solo devuelve datos del ciclo si la alumna los comparte.
       if (alumno.sexo === 'F' && alumno.comparte_ciclo) {
-        const [m, c] = await Promise.all([
+        const [m, c, i] = await Promise.all([
           registro ? supabase.from('molestias_ciclo').select('nivel').eq('sesion_registrada_id', registro.id).maybeSingle() : Promise.resolve({ data: null }),
-          supabase.from('ciclos_menstruales').select('fecha_inicio').eq('alumno_id', alumnoId),
+          supabase.from('ciclos_menstruales').select('id, fecha_inicio, fecha_fin').eq('alumno_id', alumnoId),
+          supabase.rpc('info_ciclo_alumna', { p_alumno_id: alumnoId }),
         ])
         molestia = (m.data as { nivel: string } | null)?.nivel ?? null
-        ciclo = estimarCiclo(((c.data ?? []) as { fecha_inicio: string }[]).map((x) => x.fecha_inicio), s.fecha)
+        const info = ((Array.isArray(i.data) ? i.data[0] : i.data) ?? null) as InfoCiclo | null
+        if (info) ciclo = faseCompartida((c.data ?? []) as RegistroCiclo[], info, s.fecha)
       }
       const evaluacion = e.data as Evaluacion | null
       setDatos({ sesion: { ...(s as SesionPlan), alumno_id: alumnoId }, registro, evaluacion, alumno, molestia, ciclo })
@@ -203,7 +206,7 @@ export default function EvaluarSesion() {
 
       {ciclo && (
         <p className="rounded-2xl bg-ciclo-fondo px-4 py-3 text-ciclo">
-          Ciclo: día {ciclo.dia} · fase {ciclo.fase}
+          Ciclo: día {ciclo.dia}{ciclo.fase ? ` · fase ${ciclo.fase}` :ciclo.enPeriodo ? ' · con período' : ''}
           {molestia ? ` · molestias ${molestia}` : ''} <span className="text-sm">(estimado)</span>
         </p>
       )}

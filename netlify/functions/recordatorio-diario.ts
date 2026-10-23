@@ -1,7 +1,7 @@
 // Todos los días a las 20:00 de Paraguay (23:00 UTC) avisa a cada alumno
 // qué entrenamiento tiene mañana. Netlify la corre sola (función programada).
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { enviarA, pushListo } from '../push.ts'
 
 export const config = { schedule: '0 23 * * *' }
@@ -47,5 +47,38 @@ export default async () => {
       etiqueta: `manana-${manana}`,
     })
   }
+  enviadas += await avisoCiclo(db, hoy)
   return new Response(`Avisos enviados: ${enviadas}`)
+}
+
+const diasEntre = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 864e5)
+
+// Ciclo: a quien lo pidió, 2 días antes del período previsto (sin anticonceptivo hormonal ni pausa).
+// El texto es discreto porque se ve en la pantalla bloqueada.
+async function avisoCiclo(db: SupabaseClient, hoy: string) {
+  const { data: perfiles } = await db
+    .from('perfil_ciclo')
+    .select('alumno_id, duracion_ciclo, alumnos!inner(profile_id, activo, sexo)')
+    .eq('aviso_previo', true)
+    .eq('pausado', false)
+    .in('anticonceptivo', ['ninguno', 'diu_cobre'])
+  let enviadas = 0
+  for (const p of (perfiles ?? []) as Record<string, any>[]) {
+    const alumno = Array.isArray(p.alumnos) ? p.alumnos[0] : p.alumnos
+    if (!alumno?.profile_id || !alumno.activo || alumno.sexo !== 'F') continue
+    const { data: regs } = await db.from('ciclos_menstruales').select('fecha_inicio').eq('alumno_id', p.alumno_id).order('fecha_inicio', { ascending: false }).limit(7)
+    const inicios = ((regs ?? []) as { fecha_inicio: string }[]).map((r) => r.fecha_inicio)
+    if (!inicios.length) continue
+    // Promedio de sus últimos ciclos (o lo que ella indicó, o 28 días).
+    const ds = inicios.slice(1).map((x, i) => diasEntre(x, inicios[i])).filter((x) => x >= 18 && x <= 60)
+    const duracion = Math.round(ds.length >= 2 ? ds.reduce((a, b) => a + b, 0) / ds.length : (p.duracion_ciclo ?? ds[0] ?? 28))
+    if (diasEntre(hoy, inicios[0]) + duracion !== 2) continue
+    enviadas += await enviarA(db, [alumno.profile_id], {
+      titulo: '🌸 Mi ciclo',
+      cuerpo: 'En unos 2 días empieza tu ventana prevista. Tocá para ver tus consejos.',
+      url: '/ciclo',
+      etiqueta: `ciclo-${hoy}`,
+    })
+  }
+  return enviadas
 }
