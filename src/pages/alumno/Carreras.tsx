@@ -10,6 +10,7 @@ import type { Competencia } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { DetalleCompetencia, FormResultado, OpcionesDistancia } from '../../components/Competencias'
 import { EventosAlumno } from '../../components/comunidad/Eventos'
+import { BotonCompartir, imagenDeCarrera } from '../../components/Compartir'
 import { AreaTexto, Boton, Campo, Cargando, Hoja, MensajeError, MensajeOk, Titulo, Vacio } from '../../components/ui'
 
 // Las competencias del alumno: proponer, ver si el profe la aprobó,
@@ -37,8 +38,9 @@ export default function Carreras() {
     cargar()
   }
 
-  const proximas = (lista ?? []).filter((c) => c.fecha >= hoy)
-  const pasadas = (lista ?? []).filter((c) => c.fecha < hoy && c.estado === 'aprobada').reverse()
+  // El día de la carrera ya aparece en Resultados para cargar el tiempo apenas termina.
+  const proximas = (lista ?? []).filter((c) => c.fecha > hoy || (c.fecha === hoy && c.estado !== 'aprobada'))
+  const pasadas = (lista ?? []).filter((c) => c.fecha <= hoy && c.estado === 'aprobada').reverse()
 
   return (
     <Pantalla
@@ -80,15 +82,38 @@ export default function Carreras() {
             </DetalleCompetencia>
           ))}
 
-          <Titulo>Historial</Titulo>
+          <Titulo>Resultados</Titulo>
           {pasadas.length === 0 && <Vacio>Acá van a quedar tus carreras con sus resultados.</Vacio>}
           {pasadas.map((c) => (
             <DetalleCompetencia key={c.id} c={c}>
+              {c.fecha === hoy && !c.resultado_tiempo_seg && resultadoDe !== c.id && (
+                <Link to={`/carrera/${c.id}`} className="flex min-h-11 items-center justify-center rounded-xl border border-azul font-semibold text-azul">
+                  🏁 Modo carrera
+                </Link>
+              )}
               {resultadoDe === c.id ? (
-                <FormResultado c={c} onCancelar={() => setResultadoDe(null)} onListo={() => (setResultadoDe(null), setAviso('Resultado guardado.'), cargar())} />
+                <FormResultado
+                  c={c}
+                  onCancelar={() => setResultadoDe(null)}
+                  onListo={() => (setResultadoDe(null), setAviso('¡Resultado guardado! Compartilo con tu foto 📸'), cargar())}
+                />
+              ) : c.resultado_tiempo_seg ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <BotonCompartir
+                    permitirFoto
+                    variante="primario"
+                    etiqueta="📸 Compartir mi carrera"
+                    nombreArchivo={`carrera-${c.fecha}.png`}
+                    texto={`🏁 ${c.nombre} #RiveroTrack`}
+                    generar={(d) => imagenDeCarrera(c, alumno.nombre, d)}
+                  />
+                  <Boton variante="texto" onClick={() => setResultadoDe(c.id)}>
+                    Editar resultado
+                  </Boton>
+                </div>
               ) : (
-                <Boton variante={c.resultado_tiempo_seg ? 'texto' : 'primario'} className="self-start" onClick={() => setResultadoDe(c.id)}>
-                  {c.resultado_tiempo_seg ? 'Editar resultado' : 'Cargar mi resultado'}
+                <Boton className="self-start" onClick={() => setResultadoDe(c.id)}>
+                  ⏱️ Cargar mi resultado
                 </Boton>
               )}
             </DetalleCompetencia>

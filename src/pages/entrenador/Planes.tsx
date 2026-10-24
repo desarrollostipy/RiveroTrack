@@ -7,6 +7,7 @@ import { formatoKm } from '../../lib/formato'
 import type { Alumno, Plan, SesionPlan } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { Cargando, Indicador, Opciones, SelectorPeriodo, Vacio } from '../../components/ui'
+import { CiclosSemana } from '../../components/ciclo/CicloEntrenador'
 
 type PlanResumen = Plan & { sesiones_planificadas: SesionPlan[] }
 type Filtro = 'todos' | 'sin_plan' | 'borrador' | 'publicado'
@@ -17,14 +18,14 @@ export default function Planes() {
   const [params, setParams] = useSearchParams()
   const porDefecto = diaSemana(hoy) >= 4 ? sumarDias(lunesDe(hoy), 7) : lunesDe(hoy) // de viernes en adelante, la próxima
   const lunes = lunesDe(params.get('semana') || porDefecto)
-  const [alumnos, setAlumnos] = useState<Pick<Alumno, 'id' | 'nombre' | 'nivel'>[] | null>(null)
+  const [alumnos, setAlumnos] = useState<Pick<Alumno, 'id' | 'nombre' | 'nivel' | 'sexo' | 'comparte_ciclo'>[] | null>(null)
   const [planes, setPlanes] = useState<PlanResumen[]>([])
   const [filtro, setFiltro] = useState<Filtro>('todos')
 
   useEffect(() => {
     setAlumnos(null)
     Promise.all([
-      supabase.from('alumnos').select('id, nombre, nivel').eq('activo', true).order('nombre'),
+      supabase.from('alumnos').select('id, nombre, nivel, sexo, comparte_ciclo').eq('activo', true).order('nombre'),
       supabase.from('planes_semanales').select('*, sesiones_planificadas(*)').eq('semana_inicio', lunes),
     ]).then(([a, p]) => {
       setAlumnos((a.data ?? []) as Alumno[])
@@ -70,6 +71,7 @@ export default function Planes() {
               { valor: 'publicado', texto: 'Publicados' },
             ]}
           />
+          <CiclosSemana lunes={lunes} alumnas={alumnos.filter((a) => a.sexo === 'F')} />
           {alumnos.length === 0 && <Vacio>Primero da de alta a tus alumnos en la pestaña Alumnos.</Vacio>}
           <ul className="flex flex-col gap-2">
             {visibles.map((f) => (

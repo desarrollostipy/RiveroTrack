@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { useMiAlumno } from '../../lib/alumno'
 import { mensajeError } from '../../lib/consultas'
@@ -139,6 +139,13 @@ function TabHoy({ alumnoId, registros, perfil, sintomas, recargar }: Datos) {
           )}
         </div>
         <MensajeError>{error}</MensajeError>
+        <Link to="?tab=ajustes" replace className="mt-3 flex min-h-11 items-center justify-between gap-2 rounded-xl bg-white/70 px-3 text-sm">
+          <span>
+            👁️ Tu entrenador ve:{' '}
+            <b>{perfil.pausado ? 'nada (en pausa)' : perfil.compartir === 'nada' ? 'nada' : perfil.compartir === 'fase' ? 'fase y día' : 'fase y síntomas'}</b>
+          </span>
+          <span className="font-semibold underline">Cambiar</span>
+        </Link>
       </section>
 
       {e?.fase && (
@@ -433,9 +440,9 @@ function TabAjustes({ alumnoId, registros, perfil, recargar }: Datos) {
           valor={perfil.compartir}
           onChange={(v) => privacidad(v, perfil.pausado)}
           opciones={[
-            { valor: 'nada', texto: 'Nada' },
-            { valor: 'fase', texto: 'Fase y día' },
-            { valor: 'sintomas', texto: 'Fase y síntomas' },
+            { valor: 'nada', texto: 'Nada', color: 'var(--color-ciclo)' },
+            { valor: 'fase', texto: 'Fase y día', color: 'var(--color-ciclo)' },
+            { valor: 'sintomas', texto: 'Fase y síntomas', color: 'var(--color-ciclo)' },
           ]}
         />
         <p className="mt-2 text-sm text-texto-2">
@@ -469,12 +476,15 @@ function TabAjustes({ alumnoId, registros, perfil, recargar }: Datos) {
 }
 
 function FormPerfil({ alumnoId, perfil, onListo }: { alumnoId: string; perfil: PerfilCiclo | null; onListo: () => void }) {
+  const { recargar: recargarAlumno } = useMiAlumno()
   const [duracion, setDuracion] = useState(perfil?.duracion_ciclo ? String(perfil.duracion_ciclo) : '')
   const [periodo, setPeriodo] = useState(perfil?.duracion_periodo ? String(perfil.duracion_periodo) : '')
   const [regular, setRegular] = useState<'si' | 'no' | 'nose'>(perfil?.regular === true ? 'si' : perfil?.regular === false ? 'no' : 'nose')
   const [anti, setAnti] = useState<Anticonceptivo>(perfil?.anticonceptivo ?? 'ninguno')
   const [condiciones, setCondiciones] = useState<string[]>(perfil?.condiciones ?? [])
   const [aviso, setAviso] = useState(perfil?.aviso_previo ?? false)
+  // La primera vez también elige qué ve el entrenador (sin opción marcada de antemano).
+  const [compartir, setCompartir] = useState<NivelCompartir | null>(null)
   const [error, setError] = useState('')
   const [guardado, setGuardado] = useState(false)
 
@@ -484,6 +494,7 @@ function FormPerfil({ alumnoId, perfil, onListo }: { alumnoId: string; perfil: P
     const p = periodo ? Number(periodo) : null
     if (d !== null && (d < 18 || d > 60)) return setError('La duración del ciclo va entre 18 y 60 días.')
     if (p !== null && (p < 1 || p > 12)) return setError('El período dura entre 1 y 12 días.')
+    if (!perfil && !compartir) return setError('Elegí qué querés que vea tu entrenador.')
     const { error } = await supabase.from('perfil_ciclo').upsert(
       {
         alumno_id: alumnoId,
@@ -498,6 +509,11 @@ function FormPerfil({ alumnoId, perfil, onListo }: { alumnoId: string; perfil: P
       { onConflict: 'alumno_id' },
     )
     if (error) return setError(mensajeError(error))
+    if (!perfil && compartir) {
+      const r = await supabase.rpc('set_privacidad_ciclo', { p_nivel: compartir, p_pausado: false })
+      if (r.error) return setError(mensajeError(r.error))
+      recargarAlumno()
+    }
     setGuardado(true)
     onListo()
   }
@@ -558,6 +574,23 @@ function FormPerfil({ alumnoId, perfil, onListo }: { alumnoId: string; perfil: P
         </span>
         <input type="checkbox" role="switch" className="h-6 w-6 accent-ciclo" checked={aviso} onChange={(e) => setAviso(e.target.checked)} />
       </label>
+      {!perfil && (
+        <div className="rounded-xl border border-ciclo/30 bg-superficie p-3">
+          <Opciones
+            label="¿Qué querés que vea tu entrenador?"
+            valor={compartir}
+            onChange={setCompartir}
+            opciones={[
+              { valor: 'fase', texto: 'Fase y día', color: 'var(--color-ciclo)' },
+              { valor: 'sintomas', texto: 'Fase y síntomas', color: 'var(--color-ciclo)' },
+              { valor: 'nada', texto: 'Nada', color: 'var(--color-ciclo)' },
+            ]}
+          />
+          <p className="mt-2 text-sm text-texto-2">
+            Con tu fase, tu entrenador puede organizar las sesiones fuertes y suaves de tu semana. Nunca ve tu anticonceptivo ni tus condiciones, y lo podés cambiar cuando quieras en Ajustes.
+          </p>
+        </div>
+      )}
       <MensajeError>{error}</MensajeError>
       <Boton onClick={guardar} className="!bg-ciclo text-white hover:!bg-ciclo/90">
         {guardado ? '✓ Guardado' : perfil ? 'Guardar cambios' : 'Empezar'}

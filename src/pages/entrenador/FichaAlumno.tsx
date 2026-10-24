@@ -93,7 +93,7 @@ export default function FichaAlumno() {
         {deuda.vencidas.length > 0 && <p className="text-sm opacity-90">{deuda.texto}</p>}
       </button>
 
-      <BannerCiclo alumnoId={alumno.id} activo={alumno.sexo === 'F' && alumno.comparte_ciclo} />
+      {alumno.sexo === 'F' && <BannerCiclo alumnoId={alumno.id} activo={alumno.comparte_ciclo} />}
 
       <DatosFisicos alumno={alumno} pesos={pesos} onCambio={cargar} />
       <Competencias alumnoId={alumno.id} onMarca={() => setVersionMarcas((v) => v + 1)} />

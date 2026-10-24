@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { mensajeError } from '../../lib/consultas'
 import { notificar } from '../../lib/push'
 import { compararFc, compararRitmo, kmPlanificados } from '../../lib/calculos'
-import { faseCompartida, type InfoCiclo, type RegistroCiclo } from '../../lib/ciclo'
+import { faseCompartida, infoDe, type RegistroCiclo } from '../../lib/ciclo'
 import { DIAS, diaSemana } from '../../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoPpm, formatoRango, formatoRitmo } from '../../lib/formato'
 import type { Alumno, Evaluacion, Resultado, SesionPlan, SesionReg } from '../../lib/tipos'
@@ -51,11 +51,10 @@ export default function EvaluarSesion() {
         const [m, c, i] = await Promise.all([
           registro ? supabase.from('molestias_ciclo').select('nivel').eq('sesion_registrada_id', registro.id).maybeSingle() : Promise.resolve({ data: null }),
           supabase.from('ciclos_menstruales').select('id, fecha_inicio, fecha_fin').eq('alumno_id', alumnoId),
-          supabase.rpc('info_ciclo_alumna', { p_alumno_id: alumnoId }),
+          infoDe(alumnoId),
         ])
         molestia = (m.data as { nivel: string } | null)?.nivel ?? null
-        const info = ((Array.isArray(i.data) ? i.data[0] : i.data) ?? null) as InfoCiclo | null
-        if (info) ciclo = faseCompartida((c.data ?? []) as RegistroCiclo[], info, s.fecha)
+        if (i) ciclo = faseCompartida((c.data ?? []) as RegistroCiclo[], i, s.fecha)
       }
       const evaluacion = e.data as Evaluacion | null
       setDatos({ sesion: { ...(s as SesionPlan), alumno_id: alumnoId }, registro, evaluacion, alumno, molestia, ciclo })

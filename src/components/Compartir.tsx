@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { compartirImagen, ESTILOS, FORMATOS, tarjetaSesion, type Dato, type Diseno, type Estilo, type Formato } from '../lib/tarjetas'
+import { useEffect, useRef, useState } from 'react'
+import { compartirImagen, ESTILOS, FORMATOS, tarjetaCarrera, tarjetaSesion, type Dato, type Diseno, type Estilo, type Formato } from '../lib/tarjetas'
 import { DIAS, diaSemana } from '../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo } from '../lib/formato'
-import type { SesionReg } from '../lib/tipos'
+import type { Competencia, SesionReg } from '../lib/tipos'
+import { kmCarrera, textoPuesto } from './Competencias'
 import { kmCorridos } from '../lib/extras'
 import { textoDistanciaRep, textoTiempo } from '../lib/intervalos'
 import { Boton, Hoja, MensajeOk, Pestanas } from './ui'
@@ -43,6 +44,30 @@ export function imagenDeSesion(o: {
   })
 }
 
+/** Arma la imagen del resultado de una carrera. */
+export function imagenDeCarrera(c: Competencia, nombre: string, estilo: Diseno) {
+  const seg = c.resultado_tiempo_seg ?? 0
+  const km = kmCarrera(c)
+  const objetivo =
+    c.tiempo_objetivo_seg && seg
+      ? seg <= c.tiempo_objetivo_seg
+        ? `¡Objetivo cumplido!${seg < c.tiempo_objetivo_seg ? ` ${formatoDuracion(c.tiempo_objetivo_seg - seg)} menos` : ''}`
+        : null
+      : null
+  return tarjetaCarrera({
+    estilo,
+    nombre,
+    carrera: c.nombre,
+    fecha: `${DIAS[diaSemana(c.fecha)]} ${formatoFecha(c.fecha)}`,
+    detalle: [km ? `${formatoKm(km)} km` : null, c.lugar].filter(Boolean).join(' · '),
+    tiempo: formatoDuracion(seg),
+    ritmo: km && seg ? `${formatoRitmo(seg / km)}/km` : null,
+    objetivo,
+    general: textoPuesto(c.resultado_pos_general, c.resultado_total_general) ?? (!c.resultado_pos_categoria ? c.resultado_posicion : null),
+    categoria: c.resultado_pos_categoria ? { nombre: c.resultado_categoria || '', puesto: textoPuesto(c.resultado_pos_categoria, c.resultado_total_categoria)! } : null,
+  })
+}
+
 function leer(clave: string) {
   try {
     return localStorage.getItem(clave)
@@ -76,7 +101,9 @@ export function BotonCompartir({
   etiqueta = '📤 Compartir',
   variante = 'borde',
   className = '',
+  permitirFoto = false,
 }: {
+  permitirFoto?: boolean
   generar: (diseno: Diseno) => Promise<Blob>
   nombreArchivo: string
   texto?: string
@@ -91,6 +118,18 @@ export function BotonCompartir({
   const [url, setUrl] = useState('')
   const [generando, setGenerando] = useState(false)
   const [aviso, setAviso] = useState('')
+  const [foto, setFoto] = useState<ImageBitmap | null>(null)
+  const entradaFoto = useRef<HTMLInputElement>(null)
+
+  async function elegirFoto(archivo: File | undefined) {
+    if (!archivo) return
+    try {
+      setFoto(await createImageBitmap(archivo))
+      setAviso('')
+    } catch {
+      setAviso('No se pudo abrir esa foto. Probá con otra (JPG o PNG).')
+    }
+  }
 
   useEffect(
     () => () => {
@@ -104,7 +143,7 @@ export function BotonCompartir({
     if (!abierta) return
     let vigente = true
     setGenerando(true)
-    generar({ fondo: estilo, formato })
+    generar({ fondo: estilo, formato, foto })
       .then((b) => {
         if (!vigente) return
         setBlob(b)
@@ -115,7 +154,7 @@ export function BotonCompartir({
       vigente = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [abierta, estilo, formato])
+  }, [abierta, estilo, formato, foto])
 
   function elegir(e: Estilo) {
     setEstilo(e)
@@ -140,11 +179,12 @@ export function BotonCompartir({
     setBlob(null)
     setUrl('')
     setAviso('')
+    setFoto(null)
   }
 
   // Para "sin fondo" se muestra sobre cuadritos, como en los editores de fotos.
   const fondoVista =
-    estilo === 'transparente' ? { background: 'repeating-conic-gradient(#8a93a6 0% 25%, #b9c0cf 0% 50%) 50% / 24px 24px' } : undefined
+    estilo === 'transparente' && !foto ? { background: 'repeating-conic-gradient(#8a93a6 0% 25%, #b9c0cf 0% 50%) 50% / 24px 24px' } : undefined
 
   return (
     <>
@@ -153,7 +193,20 @@ export function BotonCompartir({
       </Boton>
       <Hoja titulo="Compartir" abierta={abierta} onCerrar={cerrar}>
         <Pestanas valor={formato} onChange={elegirFormato} opciones={FORMATOS} />
-        <Pestanas valor={estilo} onChange={elegir} opciones={ESTILOS} />
+        {permitirFoto && (
+          <div className="flex gap-2">
+            <input ref={entradaFoto} type="file" accept="image/*" className="hidden" onChange={(e) => (elegirFoto(e.target.files?.[0]), (e.target.value = ''))} />
+            <Boton variante={foto ? 'borde' : 'primario'} className="flex-1" onClick={() => entradaFoto.current?.click()}>
+              📷 {foto ? 'Cambiar foto' : 'Agregar mi foto'}
+            </Boton>
+            {foto && (
+              <Boton variante="texto" onClick={() => setFoto(null)}>
+                Quitar
+              </Boton>
+            )}
+          </div>
+        )}
+        {!foto && <Pestanas valor={estilo} onChange={elegir} opciones={ESTILOS} />}
         <div
           className={`relative mx-auto w-full overflow-hidden rounded-2xl shadow-lg ${formato === 'historia' ? 'aspect-[9/16] max-w-[14rem]' : 'aspect-[4/5] max-w-xs'}`}
           style={fondoVista}
@@ -161,7 +214,8 @@ export function BotonCompartir({
           {url && <img src={url} alt="Imagen para compartir" className={`h-full w-full ${generando ? 'opacity-50' : ''}`} />}
           {generando && <p className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-texto-2">Creando imagen…</p>}
         </div>
-        {estilo === 'transparente' && (
+        {foto && <p className="text-center text-xs text-texto-2">Tu foto queda en tu celular: no se sube a la app.</p>}
+        {estilo === 'transparente' && !foto && (
           <p className="text-center text-xs text-texto-2">Ideal para pegarla encima de una foto en tus historias de Instagram.</p>
         )}
         <Boton onClick={compartir} disabled={!blob || generando}>

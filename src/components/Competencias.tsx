@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { mensajeError } from '../lib/consultas'
 import { notificar } from '../lib/push'
+import { llamarFuncion } from '../lib/api'
 import { diasEntre, hoyPY } from '../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo, leerDuracion, leerNumero } from '../lib/formato'
 import type { Competencia } from '../lib/tipos'
@@ -64,9 +65,19 @@ export function DetalleCompetencia({ c, nombreAlumno, children }: { c: Competenc
         <div className="rounded-xl bg-ok/10 px-3 py-2 text-sm">
           <p className="font-semibold text-ok">
             🏁 {formatoDuracion(c.resultado_tiempo_seg)}
-            {c.distancia_km ? ` · ${formatoRitmo(c.resultado_tiempo_seg / c.distancia_km)}/km` : ''}
-            {c.resultado_posicion ? ` · ${c.resultado_posicion}` : ''}
+            {kmCarrera(c) ? ` · ${formatoRitmo(c.resultado_tiempo_seg / kmCarrera(c)!)}/km` : ''}
+            {!c.resultado_pos_general && !c.resultado_pos_categoria && c.resultado_posicion ? ` · ${c.resultado_posicion}` : ''}
           </p>
+          {(c.resultado_pos_general || c.resultado_pos_categoria) && (
+            <p className="font-semibold text-tinta">
+              {[
+                c.resultado_pos_general ? `🏆 ${textoPuesto(c.resultado_pos_general, c.resultado_total_general)} general` : null,
+                c.resultado_pos_categoria ? `🥇 ${textoPuesto(c.resultado_pos_categoria, c.resultado_total_categoria)} en ${c.resultado_categoria || 'su categoría'}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
           {c.tiempo_objetivo_seg && (
             <p className="text-texto-2">
               {c.resultado_tiempo_seg <= c.tiempo_objetivo_seg
@@ -87,50 +98,122 @@ export function DetalleCompetencia({ c, nombreAlumno, children }: { c: Competenc
   )
 }
 
-/** Cargar el resultado (alumno o entrenador). */
+/** "15° de 320" o "15°". */
+export const textoPuesto = (pos?: number | null, total?: number | null) => (pos ? `${pos}°${total ? ` de ${total}` : ''}` : null)
+
+/** Distancia real de la carrera (la del resultado o la planificada). */
+export const kmCarrera = (c: Competencia) => Number(c.resultado_distancia_km ?? c.distancia_km ?? 0) || null
+
+type DatosGarmin = { link: string; distancia_km: number; duracion_seg: number }
+
+/** Cargar el resultado (alumno o entrenador): desde Garmin o a mano, con posición general y por categoría. */
 export function FormResultado({ c, onListo, onCancelar }: { c: Competencia; onListo: () => void; onCancelar: () => void }) {
   const [tiempo, setTiempo] = useState(c.resultado_tiempo_seg ? formatoDuracion(c.resultado_tiempo_seg) : '')
-  const [posicion, setPosicion] = useState(c.resultado_posicion ?? '')
+  const [km, setKm] = useState(kmCarrera(c) ? String(kmCarrera(c)).replace('.', ',') : '')
+  const [posG, setPosG] = useState(c.resultado_pos_general ? String(c.resultado_pos_general) : '')
+  const [totG, setTotG] = useState(c.resultado_total_general ? String(c.resultado_total_general) : '')
+  const [categoria, setCategoria] = useState(c.resultado_categoria ?? '')
+  const [posC, setPosC] = useState(c.resultado_pos_categoria ? String(c.resultado_pos_categoria) : '')
+  const [totC, setTotC] = useState(c.resultado_total_categoria ? String(c.resultado_total_categoria) : '')
   const [comentario, setComentario] = useState(c.resultado_comentario ?? '')
   const [link, setLink] = useState(c.resultado_link ?? '')
+  const [leyendo, setLeyendo] = useState(false)
+  const [garmin, setGarmin] = useState('')
   const [error, setError] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  const entero = (s: string) => {
+    const n = leerNumero(s)
+    return n === null ? null : Math.round(n)
+  }
+
+  async function leerGarmin() {
+    setError('')
+    setGarmin('')
+    if (!/garmin\.com\/[^\s]*?activity\/\d{6,}/i.test(link)) return setError('Pegá el link (o el mensaje) que comparte Garmin Connect.')
+    setLeyendo(true)
+    const r = await llamarFuncion<DatosGarmin>('leer-garmin', { url: link.trim() })
+    setLeyendo(false)
+    if (r.error !== null) return setError(r.error)
+    setLink(r.datos.link)
+    setTiempo(formatoDuracion(r.datos.duracion_seg))
+    setKm(String(r.datos.distancia_km).replace('.', ','))
+    setGarmin(`✓ Leído de Garmin: ${formatoKm(r.datos.distancia_km)} km en ${formatoDuracion(r.datos.duracion_seg)}. Si el tiempo oficial es otro, corregilo.`)
+  }
 
   async function guardar() {
+    setError('')
     const seg = leerDuracion(tiempo)
     if (!seg) return setError('Ingresá el tiempo, por ejemplo 48:30 o 1:42:10.')
-    const linkLimpio = link.match(/https?:\/\/\S+/)?.[0] ?? null
-    const { error } = await supabase.rpc('cargar_resultado_competencia', {
+    const distancia = km ? leerNumero(km) : null
+    if (km && (!distancia || distancia <= 0)) return setError('Revisá la distancia (por ejemplo 10 o 21,1).')
+    const [pg, tg, pc, tc] = [entero(posG), entero(totG), entero(posC), entero(totC)]
+    if ((pg && tg && pg > tg) || (pc && tc && pc > tc)) return setError('El puesto no puede ser mayor que la cantidad de corredores.')
+    setGuardando(true)
+    const { error } = await supabase.rpc('cargar_resultado_carrera', {
       p_competencia_id: c.id,
       p_tiempo_seg: seg,
-      p_posicion: posicion,
+      p_distancia_km: distancia,
+      p_pos_general: pg,
+      p_total_general: tg,
+      p_categoria: categoria,
+      p_pos_categoria: pc,
+      p_total_categoria: tc,
       p_comentario: comentario,
-      p_link: linkLimpio,
+      p_link: link.match(/https?:\/\/\S+/)?.[0] ?? null,
     })
+    setGuardando(false)
     if (error) return setError(mensajeError(error))
     onListo()
   }
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-azul/30 p-3">
+      <div className="flex flex-col gap-2 rounded-xl bg-fondo p-3">
+        <Campo
+          id={`res-l-${c.id}`}
+          label="⌚ Link de Garmin (opcional)"
+          ayuda="Pegá el link de la actividad y tocá Leer: completa el tiempo y la distancia."
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+        />
+        <Boton variante="borde" onClick={leerGarmin} disabled={leyendo || !link.trim()}>
+          {leyendo ? 'Leyendo…' : 'Leer de Garmin'}
+        </Boton>
+        {garmin && <p className="text-sm font-semibold text-ok">{garmin}</p>}
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <Campo id={`res-t-${c.id}`} label="Tiempo final" placeholder="48:30" value={tiempo} onChange={(e) => setTiempo(e.target.value)} />
-        <Campo id={`res-p-${c.id}`} label="Posición (opcional)" placeholder="15° general" value={posicion} onChange={(e) => setPosicion(e.target.value)} />
+        <Campo id={`res-k-${c.id}`} label="Distancia (km)" inputMode="decimal" placeholder="10" value={km} onChange={(e) => setKm(e.target.value)} />
       </div>
-      <Campo id={`res-l-${c.id}`} label="Link de Garmin o resultados (opcional)" value={link} onChange={(e) => setLink(e.target.value)} />
-      <AreaTexto id={`res-c-${c.id}`} label="¿Cómo te fue? (opcional)" rows={2} value={comentario} onChange={(e) => setComentario(e.target.value)} />
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-sm font-semibold">🏆 Posición general (opcional)</legend>
+        <div className="grid grid-cols-2 gap-3">
+          <Campo id={`res-pg-${c.id}`} label="Puesto" inputMode="numeric" placeholder="15" value={posG} onChange={(e) => setPosG(e.target.value)} />
+          <Campo id={`res-tg-${c.id}`} label="De cuántos" inputMode="numeric" placeholder="320" value={totG} onChange={(e) => setTotG(e.target.value)} />
+        </div>
+      </fieldset>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-sm font-semibold">🥇 Posición en tu categoría (opcional)</legend>
+        <Campo id={`res-cat-${c.id}`} label="Categoría" placeholder="Ej: F30-34, Master B" maxLength={40} value={categoria} onChange={(e) => setCategoria(e.target.value)} />
+        <div className="grid grid-cols-2 gap-3">
+          <Campo id={`res-pc-${c.id}`} label="Puesto" inputMode="numeric" placeholder="3" value={posC} onChange={(e) => setPosC(e.target.value)} />
+          <Campo id={`res-tc-${c.id}`} label="De cuántos" inputMode="numeric" placeholder="45" value={totC} onChange={(e) => setTotC(e.target.value)} />
+        </div>
+      </fieldset>
+      <AreaTexto id={`res-c-${c.id}`} label="¿Cómo te fue? (opcional)" rows={2} maxLength={500} value={comentario} onChange={(e) => setComentario(e.target.value)} />
       <MensajeError>{error}</MensajeError>
       <div className="flex gap-2">
         <Boton variante="borde" className="flex-1" onClick={onCancelar}>
           Cancelar
         </Boton>
-        <Boton className="flex-1" onClick={guardar}>
-          Guardar resultado
+        <Boton className="flex-1" onClick={guardar} disabled={guardando}>
+          {guardando ? 'Guardando…' : 'Guardar resultado'}
         </Boton>
       </div>
     </div>
   )
 }
-
 /** El entrenador aprueba o no una competencia propuesta. */
 export function RevisarCompetencia({ c, onListo }: { c: Competencia; onListo: () => void }) {
   const [comentario, setComentario] = useState(c.comentario_entrenador ?? '')

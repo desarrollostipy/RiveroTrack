@@ -9,7 +9,8 @@ export type Grafico = { titulo: string; barras?: Barra[]; ritmos?: number[] }
 export type Fila = { icono: string; texto: string; valor: string; progreso?: number; cumplido?: boolean }
 export type Estilo = 'azul' | 'blanco' | 'transparente'
 export type Formato = 'historia' | 'publicacion'
-export type Diseno = { fondo: Estilo; formato: Formato }
+// foto: una foto propia de fondo (no se sube a ningún lado: se dibuja en el celular).
+export type Diseno = { fondo: Estilo; formato: Formato; foto?: ImageBitmap | null }
 
 export const ESTILOS: { valor: Estilo; texto: string }[] = [
   { valor: 'azul', texto: '🔵 Azul' },
@@ -64,8 +65,27 @@ function cargarLogo(url: string) {
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
 
+/** Foto de fondo recortada para llenar la imagen, con sombras arriba y abajo para leer el texto. */
+function dibujarFoto(g: CanvasRenderingContext2D, foto: ImageBitmap, alto: number) {
+  const escala = Math.max(ANCHO / foto.width, alto / foto.height)
+  const w = foto.width * escala
+  const h = foto.height * escala
+  g.drawImage(foto, (ANCHO - w) / 2, (alto - h) / 2, w, h)
+  const arriba = g.createLinearGradient(0, 0, 0, 420)
+  arriba.addColorStop(0, 'rgba(7,19,48,0.6)')
+  arriba.addColorStop(1, 'rgba(7,19,48,0)')
+  g.fillStyle = arriba
+  g.fillRect(0, 0, ANCHO, 420)
+  const abajo = g.createLinearGradient(0, alto * 0.35, 0, alto)
+  abajo.addColorStop(0, 'rgba(7,19,48,0)')
+  abajo.addColorStop(0.45, 'rgba(7,19,48,0.6)')
+  abajo.addColorStop(1, 'rgba(7,19,48,0.92)')
+  g.fillStyle = abajo
+  g.fillRect(0, alto * 0.35, ANCHO, alto * 0.65)
+}
+
 async function lienzo(d: Diseno) {
-  const estilo = d.fondo
+  const estilo: Estilo = d.foto ? 'transparente' : d.fondo
   const historia = d.formato === 'historia'
   const altoTotal = historia ? ALTO_HISTORIA : ALTO_PUBLICACION
   // Esperar las tipografías de la marca para que la imagen salga bien.
@@ -81,7 +101,11 @@ async function lienzo(d: Diseno) {
   c.height = altoTotal
   const g = c.getContext('2d')!
 
-  if (estilo !== 'transparente') {
+  if (d.foto) {
+    dibujarFoto(g, d.foto, altoTotal)
+    g.shadowColor = 'rgba(0,0,0,0.45)'
+    g.shadowBlur = 14
+  } else if (estilo !== 'transparente') {
     const fondo = g.createLinearGradient(0, 0, ANCHO, altoTotal)
     if (estilo === 'azul') {
       fondo.addColorStop(0, '#071330')
@@ -491,6 +515,56 @@ export async function tarjetaLogro(o: { estilo: Diseno; nombre: string; icono: s
   txt(g, ajustar(g, o.detalle, ANCHO - 2 * M, TEXTO(500, 36)), cx, 968, TEXTO(500, 36), p.suave, 'center')
   if (o.datos?.length) datosPildoras(g, p, o.datos, 1022, 3)
   g.restore()
+  pie(g, p, o.nombre)
+  return aBlob(c)
+}
+
+/** Tarjeta de una carrera: tiempo grande, ritmo, objetivo y posiciones. Con foto, los datos van abajo. */
+export async function tarjetaCarrera(o: {
+  estilo: Diseno
+  nombre: string
+  carrera: string
+  fecha: string
+  detalle: string // "10 km · Costanera"
+  tiempo: string
+  ritmo: string | null
+  objetivo: string | null // "¡Objetivo cumplido! 1:28 menos"
+  general: string | null // "15° de 320"
+  categoria: { nombre: string; puesto: string } | null
+}) {
+  const { c, g, p } = await lienzo(o.estilo)
+  encabezado(g, p, o.fecha)
+  const pildoras = [
+    o.general ? { icono: '🏆', valor: o.general, etiqueta: 'Puesto general' } : null,
+    o.categoria ? { icono: '🥇', valor: o.categoria.puesto, etiqueta: `Categoría ${o.categoria.nombre}` } : null,
+  ].filter(Boolean) as { icono: string; valor: string; etiqueta: string }[]
+  // Con foto, el tiempo un poco más chico para que se vea más la foto.
+  const grande = o.estilo.foto ? 180 : 210
+  const cabecera = grande + 200
+  const altoBloque = cabecera + (o.ritmo ? 70 : 0) + (o.objetivo ? 56 : 0) + (pildoras.length ? 150 : 0)
+  const libre = ALTO - 160 - 260 - altoBloque
+  // Con foto el texto va abajo (la foto se ve arriba); sin foto, un poco centrado.
+  let y = o.estilo.foto ? ALTO - 160 - altoBloque : 260 + Math.max(0, libre / 2)
+  txt(g, '🏁 RESULTADO DE CARRERA', M, y + 36, TITULO(700, 36), p.acento)
+  const nom = caber(g, o.carrera, ANCHO - 2 * M, (n) => TITULO(800, n), 66, 38)
+  txt(g, nom.texto, M, y + 112, nom.fuente, p.texto)
+  if (o.detalle) txt(g, ajustar(g, o.detalle, ANCHO - 2 * M, TEXTO(500, 34)), M, y + 166, TEXTO(500, 34), p.suave)
+  const t = caber(g, o.tiempo, ANCHO - 2 * M, (n) => TITULO(800, n), grande, 110)
+  txt(g, t.texto, M - 8, y + cabecera - 30, t.fuente, p.texto)
+  y += cabecera
+  if (o.ritmo) {
+    txt(g, `⚡ ${o.ritmo}`, M, y + 46, MONO(700, 46), p.acento)
+    y += 70
+  }
+  if (o.objetivo) {
+    txt(g, ajustar(g, `✅ ${o.objetivo}`, ANCHO - 2 * M, TEXTO(700, 36)), M, y + 40, TEXTO(700, 36), VERDE)
+    y += 56
+  }
+  if (pildoras.length) {
+    const gap = 18
+    const col = pildoras.length === 1 ? ANCHO - 2 * M : (ANCHO - 2 * M - gap) / 2
+    pildoras.forEach((d, i) => pildora(g, p, M + i * (col + gap), y + 20, col, 120, d.icono, d.valor, d.etiqueta))
+  }
   pie(g, p, o.nombre)
   return aBlob(c)
 }

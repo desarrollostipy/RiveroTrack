@@ -148,6 +148,12 @@ export type Competencia = {
   resultado_posicion: string | null
   resultado_comentario: string | null
   resultado_link: string | null
+  resultado_distancia_km?: number | null
+  resultado_pos_general?: number | null
+  resultado_total_general?: number | null
+  resultado_categoria?: string | null
+  resultado_pos_categoria?: number | null
+  resultado_total_categoria?: number | null
   created_at: string
 }
 

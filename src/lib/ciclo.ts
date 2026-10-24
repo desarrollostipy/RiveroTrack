@@ -263,6 +263,22 @@ const perfilDesdeInfo = (i: InfoCiclo | null) =>
 export const faseCompartida = (registros: RegistroCiclo[], info: InfoCiclo | null, fecha: string) =>
   registros.length ? faseDelDia(registros, fecha, perfilDesdeInfo(info), info?.hormonal ?? false) : null
 
+// Si la base todavía no tiene la función nueva (falta correr el SQL), se usa lo mínimo:
+// sus registros y "fase y día", como antes. Solo se llama para alumnas que comparten.
+const SIN_PERFIL: InfoCiclo = { nivel: 'fase', duracion_ciclo: null, duracion_periodo: null, hormonal: false, irregular: false }
+export async function infoDe(alumnoId: string): Promise<InfoCiclo | null> {
+  const { data, error } = await supabase.rpc('info_ciclo_alumna', { p_alumno_id: alumnoId })
+  if (error) return SIN_PERFIL
+  return ((Array.isArray(data) ? data[0] : data) as InfoCiclo | undefined) ?? null
+}
+const sintomasRecientes = (alumnoIds: string[]) =>
+  supabase
+    .from('sintomas_ciclo')
+    .select('*')
+    .in('alumno_id', alumnoIds)
+    .gte('fecha', sumarDias(hoyPY(), -14))
+    .then((r) => (r.error ? [] : ((r.data ?? []) as SintomasDia[])))
+
 /** Ciclo de UNA alumna visto por el entrenador (vacío si no comparte o está en pausa). */
 export function useCicloAlumna(alumnoId: string, activo: boolean) {
   const [registros, setRegistros] = useState<RegistroCiclo[]>([])
@@ -272,33 +288,34 @@ export function useCicloAlumna(alumnoId: string, activo: boolean) {
     if (!activo) return
     Promise.all([
       supabase.from('ciclos_menstruales').select('id, fecha_inicio, fecha_fin').eq('alumno_id', alumnoId).order('fecha_inicio', { ascending: false }),
-      supabase.rpc('info_ciclo_alumna', { p_alumno_id: alumnoId }),
-      supabase.from('sintomas_ciclo').select('*').eq('alumno_id', alumnoId).gte('fecha', sumarDias(hoyPY(), -14)).order('fecha', { ascending: false }),
-    ]).then(([r, i, s]) => {
-      const fila = (Array.isArray(i.data) ? i.data[0] : i.data) as InfoCiclo | undefined
-      setInfo(fila ?? null)
-      setRegistros(fila ? ((r.data ?? []) as RegistroCiclo[]) : [])
-      setSintomas(fila ? ((s.data ?? []) as SintomasDia[]) : [])
+      infoDe(alumnoId),
+      sintomasRecientes([alumnoId]),
+    ]).then(([r, fila, s]) => {
+      const regs = (r.data ?? []) as RegistroCiclo[]
+      setInfo(fila && regs.length ? fila : null)
+      setRegistros(fila ? regs : [])
+      setSintomas(fila ? s.sort((a, b) => b.fecha.localeCompare(a.fecha)) : [])
     })
   }, [alumnoId, activo])
   return { registros, info, sintomas, fase: (fecha: string) => (info ? faseCompartida(registros, info, fecha) : null) }
 }
 
-/** Fases de varias alumnas a la vez (para la agenda). */
+export type CicloCompartido = { registros: RegistroCiclo[]; info: InfoCiclo; sintomas: SintomasDia[] }
+
+/** Fases de varias alumnas a la vez (agenda y planes). Pasar solo las que comparten. */
 export async function cargarCiclosCompartidos(alumnoIds: string[]) {
-  if (!alumnoIds.length) return new Map<string, { registros: RegistroCiclo[]; info: InfoCiclo; sintomas: SintomasDia[] }>()
+  const m = new Map<string, CicloCompartido>()
+  if (!alumnoIds.length) return m
   const [r, s] = await Promise.all([
     supabase.from('ciclos_menstruales').select('id, alumno_id, fecha_inicio, fecha_fin').in('alumno_id', alumnoIds).order('fecha_inicio', { ascending: false }),
-    supabase.from('sintomas_ciclo').select('*').in('alumno_id', alumnoIds).gte('fecha', sumarDias(hoyPY(), -14)),
+    sintomasRecientes(alumnoIds),
   ])
   const regs = (r.data ?? []) as (RegistroCiclo & { alumno_id: string })[]
   const conDatos = [...new Set(regs.map((x) => x.alumno_id))]
-  const infos = await Promise.all(conDatos.map((id) => supabase.rpc('info_ciclo_alumna', { p_alumno_id: id })))
-  const m = new Map<string, { registros: RegistroCiclo[]; info: InfoCiclo; sintomas: SintomasDia[] }>()
+  const infos = await Promise.all(conDatos.map(infoDe))
   conDatos.forEach((id, k) => {
-    const d = infos[k].data
-    const info = (Array.isArray(d) ? d[0] : d) as InfoCiclo | undefined
-    if (info) m.set(id, { registros: regs.filter((x) => x.alumno_id === id), info, sintomas: ((s.data ?? []) as SintomasDia[]).filter((x) => x.alumno_id === id) })
+    const info = infos[k]
+    if (info) m.set(id, { registros: regs.filter((x) => x.alumno_id === id), info, sintomas: s.filter((x) => x.alumno_id === id) })
   })
   return m
 }
