@@ -18,6 +18,7 @@ import { AvisoZapatillas } from '../../components/salud/Zapatillas'
 import { ChipExtra, FormExtra } from '../../components/ActividadesExtra'
 import { useExtras } from '../../lib/extras'
 import { EnergiaHoy } from '../../components/Energia'
+import { DISCIPLINAS, disciplinaDe } from '../../lib/disciplinas'
 
 type Feedback = Evaluacion & { sesiones_planificadas: { fecha: string; resumen: string | null; tipo: string } | null }
 
@@ -164,12 +165,17 @@ export default function Hoy() {
       )}
 
       {competencia && (
-        <Link to={`/carrera/${competencia.id}`} className="flex items-center justify-between gap-2 rounded-2xl border border-borde bg-superficie p-4 hover:border-azul">
+        <Link
+          to={disciplinaDe(competencia) === 'running' ? `/carrera/${competencia.id}` : '/carreras'}
+          className="flex items-center justify-between gap-2 rounded-2xl border border-borde bg-superficie p-4 hover:border-azul"
+        >
           <div>
             <p className="text-xs text-texto-2">Próxima competencia</p>
-            <p className="font-semibold">{competencia.nombre}</p>
+            <p className="font-semibold">
+              {DISCIPLINAS[disciplinaDe(competencia)].emoji} {competencia.nombre}
+            </p>
             <p className="text-sm text-texto-2">{formatoFecha(competencia.fecha)}</p>
-            <p className="mt-1 text-sm font-semibold text-azul">🏁 Modo carrera: ritmos y clima ›</p>
+            <p className="mt-1 text-sm font-semibold text-azul">{disciplinaDe(competencia) === 'running' ? '🏁 Modo carrera: ritmos y clima ›' : 'Ver en Carreras ›'}</p>
           </div>
           <p className="text-right">
             <span className="font-titulo text-3xl font-extrabold text-azul">{diasEntre(hoy, competencia.fecha)}</span>

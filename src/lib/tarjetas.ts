@@ -524,6 +524,7 @@ export async function tarjetaCarrera(o: {
   estilo: Diseno
   nombre: string
   carrera: string
+  etiqueta?: string // '🏁 RESULTADO DE CARRERA', '🏊 RESULTADO DE NATACIÓN'…
   fecha: string
   detalle: string // "10 km · Costanera"
   tiempo: string
@@ -545,7 +546,7 @@ export async function tarjetaCarrera(o: {
   const libre = ALTO - 160 - 260 - altoBloque
   // Con foto el texto va abajo (la foto se ve arriba); sin foto, un poco centrado.
   let y = o.estilo.foto ? ALTO - 160 - altoBloque : 260 + Math.max(0, libre / 2)
-  txt(g, '🏁 RESULTADO DE CARRERA', M, y + 36, TITULO(700, 36), p.acento)
+  txt(g, o.etiqueta ?? '🏁 RESULTADO DE CARRERA', M, y + 36, TITULO(700, 36), p.acento)
   const nom = caber(g, o.carrera, ANCHO - 2 * M, (n) => TITULO(800, n), 66, 38)
   txt(g, nom.texto, M, y + 112, nom.fuente, p.texto)
   if (o.detalle) txt(g, ajustar(g, o.detalle, ANCHO - 2 * M, TEXTO(500, 34)), M, y + 166, TEXTO(500, 34), p.suave)

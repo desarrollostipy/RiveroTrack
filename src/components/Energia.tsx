@@ -2,6 +2,9 @@ import { DIAS_CORTOS, hoyPY, sumarDias } from '../lib/fechas'
 import { formatoKcal, useEnergia, type DatosCuerpo } from '../lib/calorias'
 import { miles } from '../lib/formato'
 import { Tarjeta, Titulo } from './ui'
+import { DISCIPLINAS, textoDistanciaComp, textoRitmoComp } from '../lib/disciplinas'
+import { formatoDuracion, formatoFecha } from '../lib/formato'
+import type { CompetenciaHecha } from '../lib/competenciasSemana'
 
 const AVISO = 'Estimado con tu peso, el tiempo y el pulso (o lo que marcó tu reloj). Es una referencia, no un dato médico.'
 
@@ -87,6 +90,30 @@ export function EnergiaSemana({ alumnoId, lunes, deOtro = false }: { alumnoId: s
       )}
       <NotaPeso cuerpo={datos.cuerpo} deOtro={deOtro} />
       <p className="mt-1 text-xs text-texto-2">{AVISO.replace('tu peso', deOtro ? 'su peso' : 'tu peso').replace('tu reloj', deOtro ? 'su reloj' : 'tu reloj')}</p>
+    </Tarjeta>
+  )
+}
+
+/** Competencias de la semana con su resultado (suman km si son de running o pista). */
+export function CompetenciasDeLaSemana({ lista }: { lista: CompetenciaHecha[] }) {
+  if (!lista.length) return null
+  return (
+    <Tarjeta className="border-azul/40">
+      <Titulo>🏁 Competencias de la semana</Titulo>
+      <ul className="flex flex-col gap-1.5">
+        {lista.map((c) => (
+          <li key={c.id} className="text-sm">
+            <b>
+              {DISCIPLINAS[c.disciplina].emoji} {c.nombre}
+            </b>
+            <span className="text-texto-2">
+              {' · '}
+              {[formatoFecha(c.fecha), textoDistanciaComp(c.disciplina, c.km), formatoDuracion(c.tiempo_seg), textoRitmoComp(c.disciplina, c.tiempo_seg, c.km)].filter(Boolean).join(' · ')}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1 text-xs text-texto-2">Suman a las calorías de la semana; las de running y pista, también a los km.</p>
     </Tarjeta>
   )
 }

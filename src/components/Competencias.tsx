@@ -4,8 +4,9 @@ import { mensajeError } from '../lib/consultas'
 import { notificar } from '../lib/push'
 import { llamarFuncion } from '../lib/api'
 import { diasEntre, hoyPY } from '../lib/fechas'
-import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo, leerDuracion, leerNumero } from '../lib/formato'
+import { formatoDuracion, formatoFecha, leerDuracion, leerNumero, miles } from '../lib/formato'
 import type { Competencia } from '../lib/tipos'
+import { DISCIPLINAS, disciplinaDe, errorDistanciaComp, leerDistanciaComp, textoDistanciaComp, textoRitmoComp, valorDistanciaComp, type Disciplina } from '../lib/disciplinas'
 import { AreaTexto, Boton, Campo, MensajeError } from './ui'
 
 // Piezas compartidas entre el entrenador y el alumno para las competencias.
@@ -40,19 +41,23 @@ export function DetalleCompetencia({ c, nombreAlumno, children }: { c: Competenc
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           {nombreAlumno && <p className="text-sm font-semibold text-azul">{nombreAlumno}</p>}
-          <p className="font-semibold">{c.nombre}</p>
+          <p className="font-semibold">
+            <span aria-hidden="true">{DISCIPLINAS[disciplinaDe(c)].emoji}</span> {c.nombre}
+          </p>
           <p className="text-sm text-texto-2">
-            {formatoFecha(c.fecha)}/{c.fecha.slice(2, 4)}
-            {c.distancia_km ? ` · ${formatoKm(c.distancia_km)} km` : ''}
+            {DISCIPLINAS[disciplinaDe(c)].nombre} · {formatoFecha(c.fecha)}/{c.fecha.slice(2, 4)}
+            {c.distancia_km ? ` · ${textoDistanciaComp(disciplinaDe(c), c.distancia_km)}` : ''}
             {c.lugar ? ` · ${c.lugar}` : ''}
             {c.tiempo_objetivo_seg ? ` · objetivo ${formatoDuracion(c.tiempo_objetivo_seg)}` : ''}
           </p>
         </div>
-        {faltan >= 0 && c.estado !== 'rechazada' ? (
+        {faltan > 0 && c.estado !== 'rechazada' ? (
           <p className="shrink-0 text-right">
             <span className="font-titulo text-2xl font-extrabold text-azul">{faltan}</span>
             <span className="block text-xs text-texto-2">{faltan === 1 ? 'día' : 'días'}</span>
           </p>
+        ) : faltan === 0 && c.estado !== 'rechazada' && !c.resultado_tiempo_seg ? (
+          <p className="shrink-0 rounded-full bg-azul px-3 py-1 font-titulo font-extrabold text-white">¡Hoy!</p>
         ) : null}
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -65,7 +70,7 @@ export function DetalleCompetencia({ c, nombreAlumno, children }: { c: Competenc
         <div className="rounded-xl bg-ok/10 px-3 py-2 text-sm">
           <p className="font-semibold text-ok">
             🏁 {formatoDuracion(c.resultado_tiempo_seg)}
-            {kmCarrera(c) ? ` · ${formatoRitmo(c.resultado_tiempo_seg / kmCarrera(c)!)}/km` : ''}
+            {kmCarrera(c) ? ` · ${textoRitmoComp(disciplinaDe(c), c.resultado_tiempo_seg, kmCarrera(c))}` : ''}
             {!c.resultado_pos_general && !c.resultado_pos_categoria && c.resultado_posicion ? ` · ${c.resultado_posicion}` : ''}
           </p>
           {(c.resultado_pos_general || c.resultado_pos_categoria) && (
@@ -109,7 +114,9 @@ type DatosGarmin = { link: string; distancia_km: number; duracion_seg: number }
 /** Cargar el resultado (alumno o entrenador): desde Garmin o a mano, con posición general y por categoría. */
 export function FormResultado({ c, onListo, onCancelar }: { c: Competencia; onListo: () => void; onCancelar: () => void }) {
   const [tiempo, setTiempo] = useState(c.resultado_tiempo_seg ? formatoDuracion(c.resultado_tiempo_seg) : '')
-  const [km, setKm] = useState(kmCarrera(c) ? String(kmCarrera(c)).replace('.', ',') : '')
+  const disciplina = disciplinaDe(c)
+  const unidad = DISCIPLINAS[disciplina].unidad
+  const [km, setKm] = useState(valorDistanciaComp(disciplina, kmCarrera(c)))
   const [posG, setPosG] = useState(c.resultado_pos_general ? String(c.resultado_pos_general) : '')
   const [totG, setTotG] = useState(c.resultado_total_general ? String(c.resultado_total_general) : '')
   const [categoria, setCategoria] = useState(c.resultado_categoria ?? '')
@@ -137,16 +144,18 @@ export function FormResultado({ c, onListo, onCancelar }: { c: Competencia; onLi
     if (r.error !== null) return setError(r.error)
     setLink(r.datos.link)
     setTiempo(formatoDuracion(r.datos.duracion_seg))
-    setKm(String(r.datos.distancia_km).replace('.', ','))
-    setGarmin(`✓ Leído de Garmin: ${formatoKm(r.datos.distancia_km)} km en ${formatoDuracion(r.datos.duracion_seg)}. Si el tiempo oficial es otro, corregilo.`)
+    setKm(valorDistanciaComp(disciplina, r.datos.distancia_km))
+    setGarmin(`✓ Leído de Garmin: ${textoDistanciaComp(disciplina, r.datos.distancia_km)} en ${formatoDuracion(r.datos.duracion_seg)}. Si el tiempo oficial es otro, corregilo.`)
   }
 
   async function guardar() {
     setError('')
     const seg = leerDuracion(tiempo)
     if (!seg) return setError('Ingresá el tiempo, por ejemplo 48:30 o 1:42:10.')
-    const distancia = km ? leerNumero(km) : null
-    if (km && (!distancia || distancia <= 0)) return setError('Revisá la distancia (por ejemplo 10 o 21,1).')
+    const distancia = km ? leerDistanciaComp(disciplina, km) : null
+    if (km && (!distancia || distancia <= 0)) return setError(unidad === 'm' ? 'Revisá la distancia en metros (por ejemplo 1500).' : 'Revisá la distancia (por ejemplo 10 o 21,1).')
+    const errDist = errorDistanciaComp(disciplina, distancia)
+    if (errDist) return setError(errDist)
     const [pg, tg, pc, tc] = [entero(posG), entero(totG), entero(posC), entero(totC)]
     if ((pg && tg && pg > tg) || (pc && tc && pc > tc)) return setError('El puesto no puede ser mayor que la cantidad de corredores.')
     setGuardando(true)
@@ -184,7 +193,7 @@ export function FormResultado({ c, onListo, onCancelar }: { c: Competencia; onLi
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Campo id={`res-t-${c.id}`} label="Tiempo final" placeholder="48:30" value={tiempo} onChange={(e) => setTiempo(e.target.value)} />
-        <Campo id={`res-k-${c.id}`} label="Distancia (km)" inputMode="decimal" placeholder="10" value={km} onChange={(e) => setKm(e.target.value)} />
+        <Campo id={`res-k-${c.id}`} label={`Distancia (${unidad})`} inputMode="decimal" placeholder={unidad === 'm' ? '1500' : '10'} value={km} onChange={(e) => setKm(e.target.value)} />
       </div>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-semibold">🏆 Posición general (opcional)</legend>
@@ -256,22 +265,51 @@ export function RevisarCompetencia({ c, onListo }: { c: Competencia; onListo: ()
   )
 }
 
-/** Distancias rápidas para los formularios. */
-export function OpcionesDistancia({ valor, onChange }: { valor: string; onChange: (v: string) => void }) {
+/** Distancias rápidas para los formularios (en km o en metros según la disciplina). */
+export function OpcionesDistancia({ valor, onChange, disciplina = 'running' }: { valor: string; onChange: (v: string) => void; disciplina?: Disciplina }) {
+  const d = DISCIPLINAS[disciplina]
   return (
     <div className="flex flex-wrap gap-2">
-      {['5', '10', '21,1', '42,2'].map((d) => (
-        <button
-          key={d}
-          type="button"
-          onClick={() => onChange(d)}
-          className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${valor === d ? 'border-transparent bg-azul text-white' : 'border-borde bg-superficie'}`}
-        >
-          {d.replace(',1', '').replace(',2', '')}K
-        </button>
-      ))}
+      {d.distancias.map((n) => {
+        const v = d.unidad === 'm' ? String(n) : String(n).replace('.', ',')
+        const texto = disciplina === 'running' ? `${Math.floor(n)}K` : d.unidad === 'm' ? `${miles(n)} m` : `${n} km`
+        return (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(v)}
+            className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${valor === v ? 'border-transparent bg-azul text-white' : 'border-borde bg-superficie'}`}
+          >
+            {texto}
+          </button>
+        )
+      })}
     </div>
   )
 }
 
+/** Elegir la disciplina de la competencia. */
+export function SelectorDisciplina({ valor, onChange }: { valor: Disciplina; onChange: (d: Disciplina) => void }) {
+  return (
+    <div>
+      <p className="mb-1 text-sm font-medium">Disciplina</p>
+      <div className="grid grid-cols-4 gap-1.5">
+        {(Object.keys(DISCIPLINAS) as Disciplina[]).map((d) => (
+          <button
+            key={d}
+            type="button"
+            aria-pressed={valor === d}
+            onClick={() => onChange(d)}
+            className={`flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl border-2 p-1 ${valor === d ? 'border-azul bg-azul/10' : 'border-borde bg-superficie'}`}
+          >
+            <span className="text-2xl" aria-hidden="true">
+              {DISCIPLINAS[d].emoji}
+            </span>
+            <span className="text-xs font-semibold">{DISCIPLINAS[d].nombre}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 export const leerKm = (t: string) => leerNumero(t)

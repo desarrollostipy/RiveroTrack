@@ -150,6 +150,7 @@ export type Competencia = {
   resultado_comentario: string | null
   resultado_link: string | null
   resultado_distancia_km?: number | null
+  disciplina?: 'running' | 'pista' | 'natacion' | 'ciclismo'
   resultado_pos_general?: number | null
   resultado_total_general?: number | null
   resultado_categoria?: string | null

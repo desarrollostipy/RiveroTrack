@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { mensajeError } from '../../../lib/consultas'
 import { hoyPY } from '../../../lib/fechas'
-import { formatoDuracion, formatoFecha, leerDuracion, leerNumero } from '../../../lib/formato'
+import { formatoDuracion, formatoFecha, leerDuracion } from '../../../lib/formato'
 import type { Competencia, Marca } from '../../../lib/tipos'
 import { Boton, Campo, Hoja, MensajeError, MensajeOk, Opciones, Selector, Tarjeta, Titulo } from '../../../components/ui'
-import { DetalleCompetencia, distanciaMarca, FormResultado, RevisarCompetencia } from '../../../components/Competencias'
+import { DetalleCompetencia, distanciaMarca, FormResultado, RevisarCompetencia, SelectorDisciplina } from '../../../components/Competencias'
+import { DISCIPLINAS, disciplinaDe, errorDistanciaComp, leerDistanciaComp, type Disciplina } from '../../../lib/disciplinas'
 
 export function Competencias({ alumnoId, onMarca }: { alumnoId: string; onMarca?: () => void }) {
   const hoy = hoyPY()
@@ -38,8 +39,8 @@ export function Competencias({ alumnoId, onMarca }: { alumnoId: string; onMarca?
     onMarca?.()
   }
 
-  const proximas = lista.filter((c) => c.fecha >= hoy)
-  const pasadas = lista.filter((c) => c.fecha < hoy && c.estado === 'aprobada').reverse()
+  const proximas = lista.filter((c) => c.fecha > hoy || (c.fecha === hoy && c.estado !== 'aprobada'))
+  const pasadas = lista.filter((c) => c.fecha <= hoy && c.estado === 'aprobada').reverse()
   const pendientes = proximas.filter((c) => c.estado === 'propuesta').length
 
   return (
@@ -76,7 +77,7 @@ export function Competencias({ alumnoId, onMarca }: { alumnoId: string; onMarca?
                     <Boton variante="texto" onClick={() => setResultadoDe(c.id)}>
                       {c.resultado_tiempo_seg ? 'Editar resultado' : 'Cargar resultado'}
                     </Boton>
-                    {c.resultado_tiempo_seg && distanciaMarca(c.distancia_km) && (
+                    {c.resultado_tiempo_seg && disciplinaDe(c) === 'running' && distanciaMarca(c.distancia_km) && (
                       <Boton variante="borde" onClick={() => guardarMarca(c)}>
                         Guardar como marca personal
                       </Boton>
@@ -93,6 +94,7 @@ export function Competencias({ alumnoId, onMarca }: { alumnoId: string; onMarca?
   )
 }
 function NuevaCompetencia({ alumnoId, abierta, onCerrar, onListo }: { alumnoId: string; abierta: boolean; onCerrar: () => void; onListo: () => void }) {
+  const [disciplina, setDisciplina] = useState<Disciplina>('running')
   const [nombre, setNombre] = useState('')
   const [fecha, setFecha] = useState('')
   const [km, setKm] = useState('')
@@ -102,15 +104,19 @@ function NuevaCompetencia({ alumnoId, abierta, onCerrar, onListo }: { alumnoId: 
 
   async function guardar() {
     if (!nombre.trim() || !fecha) return setError('Completá el nombre y la fecha.')
+    const errDist = errorDistanciaComp(disciplina, km.trim() ? leerDistanciaComp(disciplina, km) : null)
+    if (errDist) return setError(errDist)
     const { error } = await supabase.from('competencias').insert({
       alumno_id: alumnoId,
       nombre: nombre.trim(),
       fecha,
-      distancia_km: leerNumero(km),
+      distancia_km: leerDistanciaComp(disciplina, km),
+      ...(disciplina !== 'running' ? { disciplina } : {}),
       tiempo_objetivo_seg: objetivo ? leerDuracionCarrera(objetivo) : null,
       prioridad,
     })
     if (error) return setError(mensajeError(error))
+    setDisciplina('running')
     setNombre('')
     setFecha('')
     setKm('')
@@ -122,10 +128,11 @@ function NuevaCompetencia({ alumnoId, abierta, onCerrar, onListo }: { alumnoId: 
 
   return (
     <Hoja titulo="Nueva competencia" abierta={abierta} onCerrar={onCerrar}>
+      <SelectorDisciplina valor={disciplina} onChange={(d) => (setDisciplina(d), setKm(''))} />
       <Campo id="comp-nombre" label="Nombre" placeholder="Ej: 21K de Asunción" value={nombre} onChange={(e) => setNombre(e.target.value)} />
       <Campo id="comp-fecha" label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
       <div className="grid grid-cols-2 gap-3">
-        <Campo id="comp-km" label="Distancia (km)" inputMode="decimal" value={km} onChange={(e) => setKm(e.target.value)} />
+        <Campo id="comp-km" label={`Distancia (${DISCIPLINAS[disciplina].unidad})`} inputMode="decimal" value={km} onChange={(e) => setKm(e.target.value)} />
         <Campo id="comp-obj" label="Tiempo objetivo" placeholder="1:45:00" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} />
       </div>
       <Opciones

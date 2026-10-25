@@ -5,10 +5,11 @@ import { mensajeError } from '../../lib/consultas'
 import { notificar } from '../../lib/push'
 import { Link } from 'react-router'
 import { hoyPY } from '../../lib/fechas'
-import { leerDuracion, leerNumero } from '../../lib/formato'
+import { leerDuracion } from '../../lib/formato'
 import type { Competencia } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
-import { DetalleCompetencia, FormResultado, OpcionesDistancia } from '../../components/Competencias'
+import { DetalleCompetencia, FormResultado, OpcionesDistancia, SelectorDisciplina } from '../../components/Competencias'
+import { DISCIPLINAS, disciplinaDe, errorDistanciaComp, leerDistanciaComp, type Disciplina } from '../../lib/disciplinas'
 import { EventosAlumno } from '../../components/comunidad/Eventos'
 import { BotonCompartir, imagenDeCarrera } from '../../components/Compartir'
 import { AreaTexto, Boton, Campo, Cargando, Hoja, MensajeError, MensajeOk, Titulo, Vacio } from '../../components/ui'
@@ -69,7 +70,7 @@ export default function Carreras() {
           )}
           {proximas.map((c) => (
             <DetalleCompetencia key={c.id} c={c}>
-              {c.estado === 'aprobada' && (
+              {c.estado === 'aprobada' && disciplinaDe(c) === 'running' && (
                 <Link to={`/carrera/${c.id}`} className="flex min-h-11 items-center justify-center rounded-xl bg-azul font-semibold text-white">
                   🏁 Modo carrera
                 </Link>
@@ -86,7 +87,7 @@ export default function Carreras() {
           {pasadas.length === 0 && <Vacio>Acá van a quedar tus carreras con sus resultados.</Vacio>}
           {pasadas.map((c) => (
             <DetalleCompetencia key={c.id} c={c}>
-              {c.fecha === hoy && !c.resultado_tiempo_seg && resultadoDe !== c.id && (
+              {c.fecha === hoy && !c.resultado_tiempo_seg && resultadoDe !== c.id && disciplinaDe(c) === 'running' && (
                 <Link to={`/carrera/${c.id}`} className="flex min-h-11 items-center justify-center rounded-xl border border-azul font-semibold text-azul">
                   🏁 Modo carrera
                 </Link>
@@ -102,7 +103,7 @@ export default function Carreras() {
                   <BotonCompartir
                     permitirFoto
                     variante="primario"
-                    etiqueta="📸 Compartir mi carrera"
+                    etiqueta="📸 Compartir mi resultado"
                     nombreArchivo={`carrera-${c.fecha}.png`}
                     texto={`🏁 ${c.nombre} #RiveroTrack`}
                     generar={(d) => imagenDeCarrera(c, alumno.nombre, d)}
@@ -127,6 +128,7 @@ export default function Carreras() {
 }
 
 function Proponer({ abierta, onCerrar, onListo }: { abierta: boolean; onCerrar: () => void; onListo: () => void }) {
+  const [disciplina, setDisciplina] = useState<Disciplina>('running')
   const [nombre, setNombre] = useState('')
   const [fecha, setFecha] = useState('')
   const [km, setKm] = useState('')
@@ -139,16 +141,21 @@ function Proponer({ abierta, onCerrar, onListo }: { abierta: boolean; onCerrar: 
     setError('')
     if (!nombre.trim() || !fecha) return setError('Completá el nombre y la fecha.')
     if (fecha < hoyPY()) return setError('La fecha ya pasó.')
+    const errDist = errorDistanciaComp(disciplina, km.trim() ? leerDistanciaComp(disciplina, km) : null)
+    if (errDist) return setError(errDist)
     const { data: nuevaId, error } = await supabase.rpc('proponer_competencia', {
       p_nombre: nombre,
       p_fecha: fecha,
-      p_distancia_km: leerNumero(km),
+      p_distancia_km: leerDistanciaComp(disciplina, km),
       p_tiempo_objetivo_seg: objetivo ? leerDuracion(objetivo) : null,
       p_lugar: lugar,
       p_comentario: comentario,
+      // Running va sin este dato para que funcione aunque la base no tenga todavía las disciplinas.
+      ...(disciplina !== 'running' ? { p_disciplina: disciplina } : {}),
     })
     if (error) return setError(mensajeError(error))
     if (nuevaId) notificar({ tipo: 'competencia', competencia_id: nuevaId as string })
+    setDisciplina('running')
     setNombre('')
     setFecha('')
     setKm('')
@@ -162,12 +169,13 @@ function Proponer({ abierta, onCerrar, onListo }: { abierta: boolean; onCerrar: 
   return (
     <Hoja titulo="Proponer una competencia" abierta={abierta} onCerrar={onCerrar}>
       <p className="text-sm text-texto-2">Tu entrenador la revisa y te dice si la podés correr.</p>
-      <Campo id="prop-nombre" label="Nombre de la carrera" placeholder="Ej: 10K Nocturna de Asunción" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      <SelectorDisciplina valor={disciplina} onChange={(d) => (setDisciplina(d), setKm(''))} />
+      <Campo id="prop-nombre" label="Nombre de la competencia" placeholder="Ej: 10K Nocturna de Asunción" value={nombre} onChange={(e) => setNombre(e.target.value)} />
       <Campo id="prop-fecha" label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
       <div>
-        <Campo id="prop-km" label="Distancia (km)" inputMode="decimal" value={km} onChange={(e) => setKm(e.target.value)} />
+        <Campo id="prop-km" label={`Distancia (${DISCIPLINAS[disciplina].unidad})`} inputMode="decimal" value={km} onChange={(e) => setKm(e.target.value)} />
         <div className="mt-2">
-          <OpcionesDistancia valor={km} onChange={setKm} />
+          <OpcionesDistancia valor={km} onChange={setKm} disciplina={disciplina} />
         </div>
       </div>
       <Campo id="prop-lugar" label="Lugar (opcional)" placeholder="Ej: Costanera de Asunción" value={lugar} onChange={(e) => setLugar(e.target.value)} />

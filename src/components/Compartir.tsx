@@ -4,6 +4,7 @@ import { DIAS, diaSemana } from '../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo } from '../lib/formato'
 import type { Competencia, SesionReg } from '../lib/tipos'
 import { kmCarrera, textoPuesto } from './Competencias'
+import { DISCIPLINAS, disciplinaDe, textoDistanciaComp, textoRitmoComp } from '../lib/disciplinas'
 import { kmCorridos } from '../lib/extras'
 import { textoDistanciaRep, textoTiempo } from '../lib/intervalos'
 import { Boton, Hoja, MensajeOk, Pestanas } from './ui'
@@ -48,6 +49,7 @@ export function imagenDeSesion(o: {
 export function imagenDeCarrera(c: Competencia, nombre: string, estilo: Diseno) {
   const seg = c.resultado_tiempo_seg ?? 0
   const km = kmCarrera(c)
+  const d = disciplinaDe(c)
   const objetivo =
     c.tiempo_objetivo_seg && seg
       ? seg <= c.tiempo_objetivo_seg
@@ -59,9 +61,10 @@ export function imagenDeCarrera(c: Competencia, nombre: string, estilo: Diseno) 
     nombre,
     carrera: c.nombre,
     fecha: `${DIAS[diaSemana(c.fecha)]} ${formatoFecha(c.fecha)}`,
-    detalle: [km ? `${formatoKm(km)} km` : null, c.lugar].filter(Boolean).join(' · '),
+    etiqueta: `${DISCIPLINAS[d].emoji} ${DISCIPLINAS[d].resultado}`,
+    detalle: [textoDistanciaComp(d, km), c.lugar].filter(Boolean).join(' · '),
     tiempo: formatoDuracion(seg),
-    ritmo: km && seg ? `${formatoRitmo(seg / km)}/km` : null,
+    ritmo: km && seg ? textoRitmoComp(d, seg, km) : null,
     objetivo,
     general: textoPuesto(c.resultado_pos_general, c.resultado_total_general) ?? (!c.resultado_pos_categoria ? c.resultado_posicion : null),
     categoria: c.resultado_pos_categoria ? { nombre: c.resultado_categoria || '', puesto: textoPuesto(c.resultado_pos_categoria, c.resultado_total_categoria)! } : null,

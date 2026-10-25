@@ -10,13 +10,15 @@ import { ListaDias } from '../../../components/Semana'
 import { ChipExtra } from '../../../components/ActividadesExtra'
 import { useExtras } from '../../../lib/extras'
 import { AreaTexto, Boton, Cargando, MensajeError, MensajeOk, SelectorPeriodo, Tarjeta, Titulo, Vacio } from '../../../components/ui'
-import { EnergiaSemana } from '../../../components/Energia'
+import { CompetenciasDeLaSemana, EnergiaSemana } from '../../../components/Energia'
+import { kmDeCompetencias, useCompetenciasHechas } from '../../../lib/competenciasSemana'
 
 export function TabSemana({ alumnoId }: { alumnoId: string }) {
   const hoy = hoyPY()
   const [lunes, setLunes] = useState(lunesDe(hoy))
   const [semana, setSemana] = useState<SemanaCompleta | null | undefined>(undefined)
   const { extras } = useExtras(alumnoId, lunes, sumarDias(lunes, 6))
+  const competencias = useCompetenciasHechas(alumnoId, lunes, sumarDias(lunes, 6))
 
   const cargar = useCallback(async () => {
     setSemana(undefined)
@@ -38,7 +40,13 @@ export function TabSemana({ alumnoId }: { alumnoId: string }) {
     }
   }, [alumnoId, cargar])
 
-  const r = semana ? resumenSemana(semana.sesiones) : null
+  // Las competencias de running y pista con resultado también suman km a la semana.
+  const kmComp = kmDeCompetencias(
+    competencias,
+    (semana?.sesiones ?? []).filter((s) => s.registro).map((s) => ({ fecha: s.fecha, distancia_km: s.registro!.distancia_km })),
+  )
+  const base = semana ? resumenSemana(semana.sesiones) : null
+  const r = base ? { ...base, kmReal: base.kmReal + kmComp } : null
 
   return (
     <div className="flex flex-col gap-3">
@@ -58,6 +66,7 @@ export function TabSemana({ alumnoId }: { alumnoId: string }) {
         </p>
       )}
       {semana?.nota_semana && <Tarjeta className="text-sm">📌 {semana.nota_semana}</Tarjeta>}
+      <CompetenciasDeLaSemana lista={competencias} />
       {lunes <= hoy && <EnergiaSemana alumnoId={alumnoId} lunes={lunes} deOtro />}
 
       <Link

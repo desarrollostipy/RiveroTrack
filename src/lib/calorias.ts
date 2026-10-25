@@ -10,6 +10,7 @@ import { supabase } from './supabase'
 import { edad, hoyPY, sumarDias } from './fechas'
 import { miles } from './formato'
 import type { ActividadExtra, Deporte } from './extras'
+import { cargarCompetenciasHechas, yaRegistrada, type CompetenciaHecha } from './competenciasSemana'
 
 export type DatosCuerpo = { kg: number; pesoReal: boolean; sexo: 'F' | 'M'; edad: number | null; altura: number | null }
 export type SesionEnergia = {
@@ -83,7 +84,19 @@ export async function cargarCuerpo(alumnoId: string): Promise<DatosCuerpo> {
   return { kg: kg || (sexo === 'F' ? 60 : 72), pesoReal: !!kg, sexo, edad: edad(al?.fecha_nacimiento ?? null, hoyPY()), altura: al?.altura_cm ?? null }
 }
 
-/** Calorías por día entre dos fechas (sesiones + actividades extra). */
+/** Kcal de una competencia: running/pista como una sesión; natación y ciclismo por MET (ritmo de competencia). */
+export function kcalCompetencia(c: CompetenciaHecha, cuerpo: DatosCuerpo) {
+  if (c.disciplina === 'running' || c.disciplina === 'pista') return kcalSesion({ fecha: c.fecha, distancia_km: c.km, duracion_seg: c.tiempo_seg, fc_prom: null }, cuerpo).kcal
+  const horas = c.tiempo_seg / 3600
+  let met = 8.3 // natación a ritmo de competencia
+  if (c.disciplina === 'ciclismo') {
+    const v = c.km && horas > 0 ? c.km / horas : 25
+    met = v < 22 ? 8 : v < 25 ? 10 : v < 30 ? 12 : 15.8
+  }
+  return Math.round(met * cuerpo.kg * horas)
+}
+
+/** Calorías por día entre dos fechas (sesiones, actividades extra y competencias). */
 export function useEnergia(alumnoId: string, desde: string, hasta: string, version = 0) {
   const [datos, setDatos] = useState<{ cuerpo: DatosCuerpo; dias: DiaEnergia[] } | null>(null)
   useEffect(() => {
@@ -98,7 +111,8 @@ export function useEnergia(alumnoId: string, desde: string, hasta: string, versi
       cargarCuerpo(alumnoId),
       leer('sesiones_registradas', 'fecha, distancia_km, duracion_seg, calentamiento_km, calentamiento_min, afloje_km, afloje_min, fc_prom'),
       leer('actividades_extra', 'fecha, deporte, duracion_min, distancia_km, fc_prom'),
-    ]).then(([cuerpo, s, x]) => {
+      cargarCompetenciasHechas(alumnoId, desde, hasta),
+    ]).then(([cuerpo, s, x, comps]) => {
       if (!vigente) return
       const ses = s as unknown as SesionEnergia[]
       const ext = x as unknown as ExtraEnergia[]
@@ -108,6 +122,10 @@ export function useEnergia(alumnoId: string, desde: string, hasta: string, versi
         const partes = [
           ...ses.filter((y) => y.fecha === f).map((y) => ({ texto: '🏃 Correr', ...kcalSesion(y, cuerpo) })),
           ...ext.filter((y) => y.fecha === f).map((y) => ({ texto: EMOJI[y.deporte], ...kcalExtra(y, cuerpo) })),
+          // Sin contar dos veces: si ya se registró como sesión (o como actividad extra del mismo deporte).
+          ...comps
+            .filter((c) => c.fecha === f && !yaRegistrada(c, ses) && !ext.some((y) => y.fecha === f && y.deporte === (c.disciplina === 'natacion' ? 'natacion' : c.disciplina === 'ciclismo' ? 'bicicleta' : '')))
+            .map((c) => ({ texto: `🏁 ${c.nombre}`, kcal: kcalCompetencia(c, cuerpo), delReloj: false })),
         ]
         dias.push({ fecha: f, entrenamiento: partes.reduce((t, p) => t + p.kcal, 0), reposo, partes })
       }

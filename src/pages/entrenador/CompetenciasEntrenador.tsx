@@ -6,6 +6,7 @@ import type { Alumno, Competencia } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { DetalleCompetencia, RevisarCompetencia } from '../../components/Competencias'
 import { Cargando, Opciones, Titulo, Vacio } from '../../components/ui'
+import { disciplinaDe } from '../../lib/disciplinas'
 
 type Vista = 'aprobar' | 'proximas' | 'resultados'
 
@@ -122,9 +123,11 @@ function HoraYPlan({ c, onCambio }: { c: Competencia; onCambio: () => void }) {
         Largada
         <input type="time" value={hora} onChange={(e) => guardar(e.target.value)} className="min-h-11 rounded-xl border border-borde bg-superficie px-3 font-mono" />
       </label>
-      <Link to={`/plan-carrera/${c.id}`} className="flex min-h-11 flex-1 items-center justify-center rounded-xl border border-azul px-3 text-sm font-semibold text-azul">
-        🧭 Armar plan de carrera
-      </Link>
+      {disciplinaDe(c) === 'running' && (
+        <Link to={`/plan-carrera/${c.id}`} className="flex min-h-11 flex-1 items-center justify-center rounded-xl border border-azul px-3 text-sm font-semibold text-azul">
+          🧭 Armar plan de carrera
+        </Link>
+      )}
     </div>
   )
 }

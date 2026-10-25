@@ -15,7 +15,8 @@ import { ChipExtra, FormExtra } from '../../components/ActividadesExtra'
 import { supabase } from '../../lib/supabase'
 import { ListaDias, useTipos } from '../../components/Semana'
 import { Boton, Cargando, Indicador, SelectorPeriodo, Tarjeta, Vacio } from '../../components/ui'
-import { EnergiaSemana } from '../../components/Energia'
+import { CompetenciasDeLaSemana, EnergiaSemana } from '../../components/Energia'
+import { kmDeCompetencias, useCompetenciasHechas } from '../../lib/competenciasSemana'
 
 export default function MiSemana() {
   const { alumno } = useMiAlumno()
@@ -24,6 +25,7 @@ export default function MiSemana() {
   const [lunes, setLunes] = useState(lunesDe(hoy))
   const [semana, setSemana] = useState<SemanaCompleta | null | undefined>(undefined)
   const { extras, recargarExtras } = useExtras(alumno.id, lunes, sumarDias(lunes, 6))
+  const competencias = useCompetenciasHechas(alumno.id, lunes, sumarDias(lunes, 6))
   const [extraEn, setExtraEn] = useState<string | null>(null)
 
   async function borrarExtra(a: ActividadExtra) {
@@ -45,7 +47,13 @@ export default function MiSemana() {
     }
   }, [alumno.id, lunes])
 
-  const r = semana ? resumenSemana(semana.sesiones) : null
+  // Las competencias de running y pista con resultado también suman km a la semana.
+  const kmComp = kmDeCompetencias(
+    competencias,
+    (semana?.sesiones ?? []).filter((s) => s.registro).map((s) => ({ fecha: s.fecha, distancia_km: s.registro!.distancia_km })),
+  )
+  const base = semana ? resumenSemana(semana.sesiones) : null
+  const r = base ? { ...base, kmReal: base.kmReal + kmComp } : null
   const semanaActual = lunesDe(hoy)
 
   return (
@@ -60,6 +68,7 @@ export default function MiSemana() {
       {semana === null && <Vacio>{lunes > semanaActual ? 'Tu entrenador todavía no publicó este plan.' : 'No hay plan publicado para esta semana.'}</Vacio>}
       {semana === null && lunes <= semanaActual && (
         <>
+          <CompetenciasDeLaSemana lista={competencias} />
           <EnergiaSemana alumnoId={alumno.id} lunes={lunes} />
           {extras.map((x) => (
             <ChipExtra key={x.id} a={x} onBorrar={() => borrarExtra(x)} />
@@ -75,6 +84,7 @@ export default function MiSemana() {
             <Indicador valor={`${formatoKm(r.kmReal)} / ${r.estimado ? '≈' : ''}${formatoKm(r.kmPlan)}`} texto="km hechos / planificados" />
             <Indicador valor={`${r.hechas}/${r.plan}`} texto="sesiones hechas" tono="azul" />
           </div>
+          <CompetenciasDeLaSemana lista={competencias} />
           {lunes <= semanaActual && <EnergiaSemana alumnoId={alumno.id} lunes={lunes} />}
           {semana.nota_semana && <Tarjeta>📌 {semana.nota_semana}</Tarjeta>}
           <div className="flex flex-wrap gap-2">
