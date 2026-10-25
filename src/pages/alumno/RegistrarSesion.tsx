@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { useMiAlumno } from '../../lib/alumno'
 import { llamarFuncion } from '../../lib/api'
+import { cargarCuerpo, formatoKcal, kcalSesion, type DatosCuerpo } from '../../lib/calorias'
 import { notificar } from '../../lib/push'
 import { mensajeError } from '../../lib/consultas'
 import { DIAS, diaSemana } from '../../lib/fechas'
@@ -61,6 +62,8 @@ export default function RegistrarSesion() {
   const [calMin, setCalMin] = useState('')
   const [aflKm, setAflKm] = useState('')
   const [aflMin, setAflMin] = useState('')
+  const [calorias, setCalorias] = useState('')
+  const [cuerpo, setCuerpo] = useState<DatosCuerpo | null>(null)
   const [sensacion, setSensacion] = useState<number | null>(null)
   const [molestia, setMolestia] = useState<Molestia | null>(null)
   const [comentario, setComentario] = useState('')
@@ -75,6 +78,10 @@ export default function RegistrarSesion() {
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [listo, setListo] = useState(false)
+
+  useEffect(() => {
+    cargarCuerpo(alumno.id).then(setCuerpo)
+  }, [alumno.id])
 
   useEffect(() => {
     ;(async () => {
@@ -98,6 +105,7 @@ export default function RegistrarSesion() {
         setCalMin(txt(reg.calentamiento_min))
         setAflKm(txt(reg.afloje_km))
         setAflMin(txt(reg.afloje_min))
+        setCalorias(reg.calorias ? String(reg.calorias) : '')
         setSensacion(reg.sensacion)
         setComentario(reg.comentario_alumno ?? '')
         setCalzado(reg.calzado_id ?? null)
@@ -130,6 +138,13 @@ export default function RegistrarSesion() {
   const totalKm = (km ?? 0) + (extraKm(calKm) ?? 0) + (extraKm(aflKm) ?? 0)
   const seg = leerDuracion(tiempo)
   const ritmo = km && seg ? Math.round(seg / km) : null
+  const estimadas =
+    cuerpo && km && seg
+      ? kcalSesion(
+          { fecha: '', distancia_km: km, duracion_seg: seg, fc_prom: leerNumero(fcProm), calentamiento_km: extraKm(calKm), calentamiento_min: extraMin(calMin), afloje_km: extraKm(aflKm), afloje_min: extraMin(aflMin) },
+          cuerpo,
+        ).kcal
+      : null
 
   // Lee el resumen de Garmin y completa el formulario. El pulso no viene
   // (Garmin no lo comparte en el link público): se carga a mano si se quiere.
@@ -181,6 +196,8 @@ export default function RegistrarSesion() {
       sensacion,
       comentario_alumno: comentario.trim() || null,
       calzado_id: calzadoElegido,
+      // Solo si se cargó (así no falla si la base todavía no tiene la columna).
+      ...(calorias || existente?.calorias ? { calorias: calorias ? Math.round(leerNumero(calorias) ?? 0) || null : null } : {}),
     }
     setGuardando(true)
     try {
@@ -350,6 +367,15 @@ export default function RegistrarSesion() {
       <p className="text-sm" aria-live="polite">
         Ritmo: <strong className="font-mono">{ritmo ? `${formatoRitmo(ritmo)}/km` : '—'}</strong> <span className="text-texto-2">(se calcula solo)</span>
       </p>
+      <Campo
+        id="reg-kcal"
+        label="🔥 Calorías (opcional, si tu reloj las muestra)"
+        inputMode="numeric"
+        placeholder={estimadas ? `≈ ${estimadas}` : ''}
+        ayuda={estimadas && !calorias ? `Si lo dejás vacío, usamos un estimado: ≈ ${formatoKcal(estimadas)}.` : undefined}
+        value={calorias}
+        onChange={(e) => setCalorias(e.target.value.replace(/\D/g, '').slice(0, 5))}
+      />
 
       <details className="rounded-2xl border border-borde bg-superficie p-3" open={!!(calKm || calMin || aflKm || aflMin)}>
         <summary className="cursor-pointer font-semibold">🔥 Calentamiento y 🧊 afloje <span className="font-normal text-texto-2">(opcional)</span></summary>

@@ -10,6 +10,7 @@ import { ListaDias } from '../../../components/Semana'
 import { ChipExtra } from '../../../components/ActividadesExtra'
 import { useExtras } from '../../../lib/extras'
 import { AreaTexto, Boton, Cargando, MensajeError, MensajeOk, SelectorPeriodo, Tarjeta, Titulo, Vacio } from '../../../components/ui'
+import { EnergiaSemana } from '../../../components/Energia'
 
 export function TabSemana({ alumnoId }: { alumnoId: string }) {
   const hoy = hoyPY()
@@ -57,6 +58,7 @@ export function TabSemana({ alumnoId }: { alumnoId: string }) {
         </p>
       )}
       {semana?.nota_semana && <Tarjeta className="text-sm">📌 {semana.nota_semana}</Tarjeta>}
+      {lunes <= hoy && <EnergiaSemana alumnoId={alumnoId} lunes={lunes} deOtro />}
 
       <Link
         to={`/alumnos/${alumnoId}/plan?semana=${lunes}`}

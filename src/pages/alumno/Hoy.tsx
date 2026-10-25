@@ -17,6 +17,7 @@ import { BienestarHoy } from '../../components/salud/Bienestar'
 import { AvisoZapatillas } from '../../components/salud/Zapatillas'
 import { ChipExtra, FormExtra } from '../../components/ActividadesExtra'
 import { useExtras } from '../../lib/extras'
+import { EnergiaHoy } from '../../components/Energia'
 
 type Feedback = Evaluacion & { sesiones_planificadas: { fecha: string; resumen: string | null; tipo: string } | null }
 
@@ -134,6 +135,8 @@ export default function Hoy() {
           </Tarjeta>
         </>
       )}
+
+      <EnergiaHoy alumnoId={alumno.id} />
 
       {feedback && (
         <Tarjeta>

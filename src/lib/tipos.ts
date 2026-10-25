@@ -83,6 +83,7 @@ export type SesionReg = {
   afloje_min?: number | null
   reps_hechas?: number | null
   rep_prom_seg?: number | null
+  calorias?: number | null
   sensacion: number | null
   comentario_alumno: string | null
   datos_crudos?: { titulo?: string | null; desnivel_m?: number | null } | null

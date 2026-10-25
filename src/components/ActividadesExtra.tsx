@@ -44,6 +44,7 @@ export function FormExtra({ alumnoId, fecha, abierta, onCerrar, onListo }: { alu
   const [minutos, setMinutos] = useState('')
   const [distancia, setDistancia] = useState('')
   const [fc, setFc] = useState('')
+  const [kcal, setKcal] = useState('')
   const [sensacion, setSensacion] = useState<number | null>(null)
   const [comentario, setComentario] = useState('')
   const [error, setError] = useState('')
@@ -57,6 +58,7 @@ export function FormExtra({ alumnoId, fecha, abierta, onCerrar, onListo }: { alu
     setMinutos('')
     setDistancia('')
     setFc('')
+    setKcal('')
     setSensacion(null)
     setComentario('')
     setError('')
@@ -86,6 +88,8 @@ export function FormExtra({ alumnoId, fecha, abierta, onCerrar, onListo }: { alu
       fc_prom: fcProm ? Math.round(fcProm) : null,
       sensacion,
       comentario: comentario.trim() || null,
+      // Solo si se cargó (así no falla si la base todavía no tiene la columna).
+      ...(kcal ? { calorias: Math.round(leerNumero(kcal) ?? 0) || null } : {}),
     })
     setGuardando(false)
     if (error) return setError(mensajeError(error))
@@ -130,7 +134,9 @@ export function FormExtra({ alumnoId, fecha, abierta, onCerrar, onListo }: { alu
           <Campo id="ex-dist" label={`Distancia (${unidad})`} inputMode="decimal" placeholder={unidad === 'm' ? '1500' : ''} value={distancia} onChange={(e) => setDistancia(e.target.value)} />
         )}
         <Campo id="ex-fc" label="Pulso prom. (opcional)" inputMode="numeric" value={fc} onChange={(e) => setFc(e.target.value.replace(/\D/g, ''))} />
+        <Campo id="ex-kcal" label="🔥 Calorías (opcional)" inputMode="numeric" placeholder="del reloj" value={kcal} onChange={(e) => setKcal(e.target.value.replace(/\D/g, '').slice(0, 5))} />
       </div>
+      <p className="-mt-2 text-xs text-texto-2">Si no las sabés, dejalo vacío: las estimamos con tu peso y la duración.</p>
       <Opciones label="¿Cómo te sentiste? (opcional)" valor={sensacion} onChange={(v) => setSensacion(v === sensacion ? null : v)} opciones={SENSACIONES} />
       <AreaTexto id="ex-com" label="Comentario (opcional)" rows={2} value={comentario} maxLength={300} onChange={(e) => setComentario(e.target.value)} />
       <MensajeError>{error}</MensajeError>
