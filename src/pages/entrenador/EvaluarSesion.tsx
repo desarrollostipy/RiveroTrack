@@ -12,6 +12,8 @@ import type { Alumno, Evaluacion, Resultado, SesionPlan, SesionReg } from '../..
 import { Pantalla } from '../../components/Pantalla'
 import { useTipos } from '../../components/Semana'
 import { AreaTexto, Boton, Cargando, EtiquetaTipo, MensajeError, Tarjeta, Titulo } from '../../components/ui'
+import { leerBloques } from '../../lib/pista'
+import { ResumenPista } from '../../components/PistaVueltas'
 
 const SENSACION = ['', 'Muy mal', 'Mal', 'Normal', 'Bien', 'Excelente']
 
@@ -118,6 +120,7 @@ export default function EvaluarSesion() {
                 </p>
               )}
               {r.duracion_seg && <p>{formatoDuracion(r.duracion_seg)}</p>}
+              <ResumenPista bloques={leerBloques(r.pista_bloques)} />
               {(r.calentamiento_km || r.calentamiento_min || r.calentamiento_garmin_url) && (
                 <ParteRegistrada titulo="🔥 Calentamiento" km={r.calentamiento_km} min={r.calentamiento_min} fcp={r.calentamiento_fc_prom} fcm={r.calentamiento_fc_max} link={r.calentamiento_garmin_url} />
               )}

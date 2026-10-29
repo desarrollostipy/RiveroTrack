@@ -87,6 +87,7 @@ export type SesionReg = {
   afloje_garmin_url?: string | null
   afloje_fc_prom?: number | null
   afloje_fc_max?: number | null
+  pista_bloques?: unknown
   reps_hechas?: number | null
   rep_prom_seg?: number | null
   calorias?: number | null

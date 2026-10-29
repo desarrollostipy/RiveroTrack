@@ -1752,3 +1752,35 @@ grant select on public.v_resumen_semanal to authenticated;
 revoke execute on function public.km_competencias_semana(uuid, date) from public, anon;
 grant execute on function public.km_competencias_semana(uuid, date) to authenticated;
 
+
+
+-- >>>>> 20261029000100_calentamiento_garmin.sql
+-- =====================================================================
+-- Rivero Track & Field — 25. Calentamiento y afloje con Garmin y pulso
+--   Cada parte puede tener su propio link de Garmin (si se grabó como
+--   actividad aparte) y su pulso promedio y máximo.
+-- Escrito para poder correrse más de una vez sin error.
+-- =====================================================================
+
+alter table public.sesiones_registradas
+  add column if not exists calentamiento_garmin_url text check (calentamiento_garmin_url is null or (calentamiento_garmin_url ~* '^https://' and char_length(calentamiento_garmin_url) <= 500)),
+  add column if not exists calentamiento_fc_prom   smallint check (calentamiento_fc_prom is null or calentamiento_fc_prom between 40 and 240),
+  add column if not exists calentamiento_fc_max    smallint check (calentamiento_fc_max is null or calentamiento_fc_max between 40 and 240),
+  add column if not exists afloje_garmin_url       text check (afloje_garmin_url is null or (afloje_garmin_url ~* '^https://' and char_length(afloje_garmin_url) <= 500)),
+  add column if not exists afloje_fc_prom          smallint check (afloje_fc_prom is null or afloje_fc_prom between 40 and 240),
+  add column if not exists afloje_fc_max           smallint check (afloje_fc_max is null or afloje_fc_max between 40 and 240);
+
+
+-- >>>>> 20261030000100_pista_vuelta_por_vuelta.sql
+-- =====================================================================
+-- Rivero Track & Field — 26. Pista vuelta por vuelta
+--   El alumno arma la sesión de pista al registrarla (6×800, 4×400…),
+--   con el tiempo de cada vuelta de 400 m y la recuperación de cada
+--   repetición. Se guarda como lista de bloques:
+--   [{"distancia_m": 800, "reps": [{"vueltas": [88, 90], "rec_seg": 90}, …]}, …]
+-- Escrito para poder correrse más de una vez sin error.
+-- =====================================================================
+
+alter table public.sesiones_registradas
+  add column if not exists pista_bloques jsonb
+    check (pista_bloques is null or (jsonb_typeof(pista_bloques) = 'array' and octet_length(pista_bloques::text) <= 20000));

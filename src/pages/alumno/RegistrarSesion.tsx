@@ -12,7 +12,9 @@ import type { Molestia, SesionPlan, SesionReg, Split } from '../../lib/tipos'
 import { Pantalla } from '../../components/Pantalla'
 import { BotonCompartir, imagenDeSesion } from '../../components/Compartir'
 import { useZapatillas } from '../../components/salud/Zapatillas'
-import { compararVuelta, kmReps, textoDistanciaRep, textoReps } from '../../lib/intervalos'
+import { compararVuelta, esIntervalos, kmReps, textoDistanciaRep, textoReps } from '../../lib/intervalos'
+import { leerBloques, resumenBloque, resumenPista, type BloquePista } from '../../lib/pista'
+import { EditorPista } from '../../components/PistaVueltas'
 import { ObjetivosSesion, useTipos } from '../../components/Semana'
 import { AreaTexto, Boton, Campo, Cargando, EtiquetaTipo, MensajeError, Opciones, Pestanas, Tarjeta } from '../../components/ui'
 
@@ -62,6 +64,9 @@ export default function RegistrarSesion() {
   const [calMin, setCalMin] = useState('')
   const [aflKm, setAflKm] = useState('')
   const [aflMin, setAflMin] = useState('')
+  // Pista vuelta por vuelta (el alumno arma los bloques al registrar).
+  const [vueltaPorVuelta, setVueltaPorVuelta] = useState(false)
+  const [bloquesPista, setBloquesPista] = useState<BloquePista[]>([])
   // Calentamiento y afloje: también con su link de Garmin y su pulso.
   const [calLink, setCalLink] = useState('')
   const [calFcp, setCalFcp] = useState('')
@@ -113,6 +118,11 @@ export default function RegistrarSesion() {
         setAflKm(txt(reg.afloje_km))
         setAflMin(txt(reg.afloje_min))
         setCalorias(reg.calorias ? String(reg.calorias) : '')
+        const bp = leerBloques(reg.pista_bloques)
+        if (bp.length) {
+          setBloquesPista(bp)
+          setVueltaPorVuelta(true)
+        }
         setCalLink(reg.calentamiento_garmin_url ?? '')
         setCalFcp(reg.calentamiento_fc_prom ? String(reg.calentamiento_fc_prom) : '')
         setCalFcm(reg.calentamiento_fc_max ? String(reg.calentamiento_fc_max) : '')
@@ -135,6 +145,17 @@ export default function RegistrarSesion() {
 
   // Pista / series: con repeticiones hechas y vuelta promedio salen la distancia y el tiempo (sin recuperación).
   const conReps = !!(sesion?.reps && sesion.rep_m)
+  const conBloques = vueltaPorVuelta && bloquesPista.some((b) => resumenBloque(b))
+
+  // Al cargar vueltas, la distancia y el tiempo (sin recuperación) salen solos.
+  function cambiarBloques(b: BloquePista[]) {
+    setBloquesPista(b)
+    const r = resumenPista(b)
+    if (r.km > 0) {
+      setDistancia(String(r.km).replace('.', ','))
+      setTiempo(formatoDuracion(r.segundos))
+    }
+  }
   function cambiarReps(n: string, v: string) {
     setRepsHechas(n)
     setVuelta(v)
@@ -225,6 +246,12 @@ export default function RegistrarSesion() {
       // Solo si se cargó (así no falla si la base todavía no tiene la columna).
       ...(calorias || existente?.calorias ? { calorias: calorias ? Math.round(leerNumero(calorias) ?? 0) || null : null } : {}),
       ...(Object.values(extrasParte).some((v) => v !== null) || habiaParte ? extrasParte : {}),
+      // Pista vuelta por vuelta: solo si se usó (o si ya estaba guardada, para poder borrarla).
+      ...(conBloques || existente?.pista_bloques ? { pista_bloques: conBloques ? bloquesPista : null } : {}),
+      // Con un solo bloque, también quedan las repeticiones y la vuelta promedio.
+      ...(conBloques && bloquesPista.length === 1 && resumenBloque(bloquesPista[0])
+        ? { reps_hechas: resumenBloque(bloquesPista[0])!.hechas, rep_prom_seg: resumenBloque(bloquesPista[0])!.promedio }
+        : {}),
     }
     setGuardando(true)
     try {
@@ -279,7 +306,7 @@ export default function RegistrarSesion() {
             imagenDeSesion({
               estilo,
               planKm: sesion.distancia_km,
-              registro: { reps_hechas: conReps ? leerNumero(repsHechas) : null, rep_prom_seg: conReps ? leerDuracion(vuelta) : null, rep_m: sesion.rep_m ?? null, fecha: sesion.fecha, distancia_km: km, calentamiento_km: extraKm(calKm), afloje_km: extraKm(aflKm), duracion_seg: seg, ritmo_prom_seg: ritmo, fc_prom: leerNumero(fcProm), sensacion, splits: garmin?.splits ?? existente?.splits ?? [], datos_crudos: garmin ? { desnivel_m: garmin.desnivel_m } : existente?.datos_crudos },
+              registro: { pista_bloques: conBloques ? bloquesPista : null, reps_hechas: conReps ? leerNumero(repsHechas) : null, rep_prom_seg: conReps ? leerDuracion(vuelta) : null, rep_m: sesion.rep_m ?? null, fecha: sesion.fecha, distancia_km: km, calentamiento_km: extraKm(calKm), afloje_km: extraKm(aflKm), duracion_seg: seg, ritmo_prom_seg: ritmo, fc_prom: leerNumero(fcProm), sensacion, splits: garmin?.splits ?? existente?.splits ?? [], datos_crudos: garmin ? { desnivel_m: garmin.desnivel_m } : existente?.datos_crudos },
               tipo: tipo(sesion.tipo).nombre,
               titulo: sesion.resumen || tipo(sesion.tipo).nombre,
               nombre: alumno.nombre,
@@ -358,7 +385,39 @@ export default function RegistrarSesion() {
         </Tarjeta>
       )}
 
-      {conReps && sesion && (
+      {sesion && (esIntervalos(sesion.tipo) || vueltaPorVuelta) && (
+        <div className="flex flex-col gap-3 rounded-2xl border-2 border-azul/30 bg-azul/5 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-semibold">🏟️ Vuelta por vuelta</p>
+            {vueltaPorVuelta && (
+              <Boton variante="texto" className="!min-h-9" onClick={() => setVueltaPorVuelta(false)}>
+                No usar
+              </Boton>
+            )}
+          </div>
+          {!vueltaPorVuelta ? (
+            <>
+              <p className="-mt-2 text-sm text-texto-2">Armá lo que hiciste (por ejemplo 6×800 y 4×400) y cargá el tiempo de cada vuelta de 400 m y tus recuperaciones.</p>
+              <Boton
+                onClick={() => {
+                  // Si el profe dejó las repeticiones, se arranca con ese bloque.
+                  if (!bloquesPista.length && conReps) setBloquesPista([{ distancia_m: sesion.rep_m!, reps: Array.from({ length: sesion.reps! }, () => ({ vueltas: [], rec_seg: null })) }])
+                  setVueltaPorVuelta(true)
+                }}
+              >
+                Cargar vuelta por vuelta
+              </Boton>
+            </>
+          ) : (
+            <>
+              <EditorPista inicial={bloquesPista} onChange={cambiarBloques} />
+              <p className="text-xs text-texto-2">La distancia y el tiempo de abajo se calculan solos con tus repeticiones (sin contar la recuperación).</p>
+            </>
+          )}
+        </div>
+      )}
+
+      {conReps && sesion && !vueltaPorVuelta && (
         <div className="flex flex-col gap-3 rounded-2xl border-2 border-azul/30 bg-azul/5 p-3">
           <p className="font-semibold">🔁 Repeticiones</p>
           <p className="-mt-2 text-sm text-texto-2">

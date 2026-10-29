@@ -4,6 +4,7 @@ import { DIAS, diaSemana } from '../lib/fechas'
 import { formatoDuracion, formatoFecha, formatoKm, formatoRitmo } from '../lib/formato'
 import type { Competencia, SesionReg } from '../lib/tipos'
 import { kmCarrera, textoPuesto } from './Competencias'
+import { leerBloques, resumenBloque } from '../lib/pista'
 import { DISCIPLINAS, disciplinaDe, textoDistanciaComp, textoRitmoComp } from '../lib/disciplinas'
 import { kmCorridos } from '../lib/extras'
 import { textoDistanciaRep, textoTiempo } from '../lib/intervalos'
@@ -13,7 +14,7 @@ const SENSACION = ['', '😣 Muy mal', '😕 Mal', '🙂 Normal', '😄 Bien', '
 
 /** Arma la imagen de un entrenamiento registrado. */
 export function imagenDeSesion(o: {
-  registro: Pick<SesionReg, 'fecha' | 'distancia_km' | 'duracion_seg' | 'ritmo_prom_seg' | 'fc_prom' | 'sensacion' | 'splits'> & { datos_crudos?: { desnivel_m?: number | null } | null; calentamiento_km?: number | null; afloje_km?: number | null; reps_hechas?: number | null; rep_prom_seg?: number | null; rep_m?: number | null }
+  registro: Pick<SesionReg, 'fecha' | 'distancia_km' | 'duracion_seg' | 'ritmo_prom_seg' | 'fc_prom' | 'sensacion' | 'splits'> & { datos_crudos?: { desnivel_m?: number | null } | null; calentamiento_km?: number | null; afloje_km?: number | null; reps_hechas?: number | null; rep_prom_seg?: number | null; rep_m?: number | null; pista_bloques?: unknown }
   tipo: string
   titulo: string
   nombre: string
@@ -22,8 +23,14 @@ export function imagenDeSesion(o: {
 }) {
   const r = o.registro
   const datos: Dato[] = []
-  if (r.reps_hechas && r.rep_m) datos.push({ etiqueta: 'Repeticiones', valor: `${r.reps_hechas}×${textoDistanciaRep(r.rep_m)}` })
-  if (r.rep_prom_seg) datos.push({ etiqueta: 'Vuelta prom.', valor: textoTiempo(r.rep_prom_seg) })
+  // Pista vuelta por vuelta: un dato por bloque ("6×800 m · 🔁 2:58 prom").
+  const bloques = leerBloques(r.pista_bloques)
+  for (const b of bloques.slice(0, 2)) {
+    const res = resumenBloque(b)
+    if (res) datos.push({ etiqueta: `${res.hechas}×${textoDistanciaRep(b.distancia_m)}`, valor: `🔁 ${textoTiempo(res.promedio)} prom` })
+  }
+  if (!bloques.length && r.reps_hechas && r.rep_m) datos.push({ etiqueta: 'Repeticiones', valor: `${r.reps_hechas}×${textoDistanciaRep(r.rep_m)}` })
+  if (!bloques.length && r.rep_prom_seg) datos.push({ etiqueta: 'Vuelta prom.', valor: textoTiempo(r.rep_prom_seg) })
   if (r.duracion_seg) datos.push({ etiqueta: 'Tiempo', valor: formatoDuracion(r.duracion_seg) })
   if (r.ritmo_prom_seg) datos.push({ etiqueta: 'Ritmo', valor: `${formatoRitmo(r.ritmo_prom_seg)}/km` })
   if (r.fc_prom) datos.push({ etiqueta: 'Pulso prom.', valor: `${r.fc_prom} ppm` })
