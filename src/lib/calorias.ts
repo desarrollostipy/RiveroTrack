@@ -21,6 +21,8 @@ export type SesionEnergia = {
   calentamiento_min?: number | null
   afloje_km?: number | null
   afloje_min?: number | null
+  calentamiento_fc_prom?: number | null
+  afloje_fc_prom?: number | null
   fc_prom: number | null
   calorias?: number | null
 }
@@ -44,8 +46,13 @@ export function kcalSesion(s: SesionEnergia, c: DatosCuerpo) {
   const km = Number(s.distancia_km ?? 0)
   const min = (s.duracion_seg ?? 0) / 60
   const principal = keytel(s.fc_prom, min, c) ?? km * c.kg
-  const parte = (k?: number | null, m?: number | null) => (k ? Number(k) * c.kg : m ? (7 * c.kg * Number(m)) / 60 : 0)
-  return { kcal: Math.round(principal + parte(s.calentamiento_km, s.calentamiento_min) + parte(s.afloje_km, s.afloje_min)), delReloj: false }
+  // Calentamiento/afloje: con pulso y minutos, Keytel; si no, por km; si no, por minutos.
+  const parte = (k?: number | null, m?: number | null, fc?: number | null) =>
+    (m ? keytel(fc ?? null, Number(m), c) : null) ?? (k ? Number(k) * c.kg : m ? (7 * c.kg * Number(m)) / 60 : 0)
+  return {
+    kcal: Math.round(principal + parte(s.calentamiento_km, s.calentamiento_min, s.calentamiento_fc_prom) + parte(s.afloje_km, s.afloje_min, s.afloje_fc_prom)),
+    delReloj: false,
+  }
 }
 
 /** Kcal de una actividad extra (natación, bici, gimnasio…). */
@@ -102,14 +109,18 @@ export function useEnergia(alumnoId: string, desde: string, hasta: string, versi
   useEffect(() => {
     let vigente = true
     // Si todavía no se corrió el SQL de calorías, se pide sin esa columna (todo estimado).
-    const leer = async (tabla: string, columnas: string) => {
+    // Igual con el pulso del calentamiento y del afloje: se prueba de lo más completo a lo mínimo.
+    const leer = async (tabla: string, columnas: string, nuevas = '') => {
       const q = (c: string) => supabase.from(tabla).select(c).eq('alumno_id', alumnoId).gte('fecha', desde).lte('fecha', hasta)
-      const r = await q(`${columnas}, calorias`)
-      return (r.error ? (await q(columnas)).data : r.data) ?? []
+      for (const c of [nuevas && `${columnas}, calorias, ${nuevas}`, `${columnas}, calorias`, columnas].filter(Boolean)) {
+        const r = await q(c)
+        if (!r.error) return r.data ?? []
+      }
+      return []
     }
     Promise.all([
       cargarCuerpo(alumnoId),
-      leer('sesiones_registradas', 'fecha, distancia_km, duracion_seg, calentamiento_km, calentamiento_min, afloje_km, afloje_min, fc_prom'),
+      leer('sesiones_registradas', 'fecha, distancia_km, duracion_seg, calentamiento_km, calentamiento_min, afloje_km, afloje_min, fc_prom', 'calentamiento_fc_prom, afloje_fc_prom'),
       leer('actividades_extra', 'fecha, deporte, duracion_min, distancia_km, fc_prom'),
       cargarCompetenciasHechas(alumnoId, desde, hasta),
     ]).then(([cuerpo, s, x, comps]) => {

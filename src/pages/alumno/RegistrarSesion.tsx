@@ -62,6 +62,13 @@ export default function RegistrarSesion() {
   const [calMin, setCalMin] = useState('')
   const [aflKm, setAflKm] = useState('')
   const [aflMin, setAflMin] = useState('')
+  // Calentamiento y afloje: también con su link de Garmin y su pulso.
+  const [calLink, setCalLink] = useState('')
+  const [calFcp, setCalFcp] = useState('')
+  const [calFcm, setCalFcm] = useState('')
+  const [aflLink, setAflLink] = useState('')
+  const [aflFcp, setAflFcp] = useState('')
+  const [aflFcm, setAflFcm] = useState('')
   const [calorias, setCalorias] = useState('')
   const [cuerpo, setCuerpo] = useState<DatosCuerpo | null>(null)
   const [sensacion, setSensacion] = useState<number | null>(null)
@@ -106,6 +113,12 @@ export default function RegistrarSesion() {
         setAflKm(txt(reg.afloje_km))
         setAflMin(txt(reg.afloje_min))
         setCalorias(reg.calorias ? String(reg.calorias) : '')
+        setCalLink(reg.calentamiento_garmin_url ?? '')
+        setCalFcp(reg.calentamiento_fc_prom ? String(reg.calentamiento_fc_prom) : '')
+        setCalFcm(reg.calentamiento_fc_max ? String(reg.calentamiento_fc_max) : '')
+        setAflLink(reg.afloje_garmin_url ?? '')
+        setAflFcp(reg.afloje_fc_prom ? String(reg.afloje_fc_prom) : '')
+        setAflFcm(reg.afloje_fc_max ? String(reg.afloje_fc_max) : '')
         setSensacion(reg.sensacion)
         setComentario(reg.comentario_alumno ?? '')
         setCalzado(reg.calzado_id ?? null)
@@ -141,7 +154,7 @@ export default function RegistrarSesion() {
   const estimadas =
     cuerpo && km && seg
       ? kcalSesion(
-          { fecha: '', distancia_km: km, duracion_seg: seg, fc_prom: leerNumero(fcProm), calentamiento_km: extraKm(calKm), calentamiento_min: extraMin(calMin), afloje_km: extraKm(aflKm), afloje_min: extraMin(aflMin) },
+          { fecha: '', distancia_km: km, duracion_seg: seg, fc_prom: leerNumero(fcProm), calentamiento_km: extraKm(calKm), calentamiento_min: extraMin(calMin), afloje_km: extraKm(aflKm), afloje_min: extraMin(aflMin), calentamiento_fc_prom: calFcp ? leerNumero(calFcp) : null, afloje_fc_prom: aflFcp ? leerNumero(aflFcp) : null },
           cuerpo,
         ).kcal
       : null
@@ -172,6 +185,19 @@ export default function RegistrarSesion() {
       const n = v.trim() ? leerNumero(v) : null
       if (v.trim() && (!n || n <= 0)) return setError(`Revisá ${nombre}: tiene que ser un número mayor a cero.`)
     }
+    for (const [v, nombre] of [[calFcp, 'el pulso promedio del calentamiento'], [calFcm, 'el pulso máximo del calentamiento'], [aflFcp, 'el pulso promedio del afloje'], [aflFcm, 'el pulso máximo del afloje']] as const) {
+      const n = v.trim() ? leerNumero(v) : null
+      if (v.trim() && (!n || n < 40 || n > 240)) return setError(`Revisá ${nombre}: va entre 40 y 240.`)
+    }
+    const extrasParte = {
+      calentamiento_garmin_url: linkGarmin(calLink),
+      calentamiento_fc_prom: calFcp ? leerNumero(calFcp) : null,
+      calentamiento_fc_max: calFcm ? leerNumero(calFcm) : null,
+      afloje_garmin_url: linkGarmin(aflLink),
+      afloje_fc_prom: aflFcp ? leerNumero(aflFcp) : null,
+      afloje_fc_max: aflFcm ? leerNumero(aflFcm) : null,
+    }
+    const habiaParte = existente && (existente.calentamiento_garmin_url || existente.calentamiento_fc_prom || existente.calentamiento_fc_max || existente.afloje_garmin_url || existente.afloje_fc_prom || existente.afloje_fc_max)
     // El link se guarda siempre que haya uno, aunque no se haya podido leer:
     // el entrenador lo abre para ver la actividad completa.
     const url = linkGarmin(link)
@@ -198,6 +224,7 @@ export default function RegistrarSesion() {
       calzado_id: calzadoElegido,
       // Solo si se cargó (así no falla si la base todavía no tiene la columna).
       ...(calorias || existente?.calorias ? { calorias: calorias ? Math.round(leerNumero(calorias) ?? 0) || null : null } : {}),
+      ...(Object.values(extrasParte).some((v) => v !== null) || habiaParte ? extrasParte : {}),
     }
     setGuardando(true)
     try {
@@ -377,15 +404,37 @@ export default function RegistrarSesion() {
         onChange={(e) => setCalorias(e.target.value.replace(/\D/g, '').slice(0, 5))}
       />
 
-      <details className="rounded-2xl border border-borde bg-superficie p-3" open={!!(calKm || calMin || aflKm || aflMin)}>
+      <details className="rounded-2xl border border-borde bg-superficie p-3" open={!!(calKm || calMin || aflKm || aflMin || calLink || aflLink)}>
         <summary className="cursor-pointer font-semibold">🔥 Calentamiento y 🧊 afloje <span className="font-normal text-texto-2">(opcional)</span></summary>
         <p className="mt-1 text-xs text-texto-2">Si los hiciste aparte de la parte principal, cargalos acá: suman a tus km de la semana, pero no cambian el ritmo de la sesión.</p>
-        <div className="mt-2 grid grid-cols-2 gap-3">
-          <Campo id="reg-cal-km" label="Calentamiento (km)" inputMode="decimal" value={calKm} onChange={(e) => setCalKm(e.target.value)} />
-          <Campo id="reg-cal-min" label="Calentamiento (min)" inputMode="numeric" value={calMin} onChange={(e) => setCalMin(e.target.value.replace(/\D/g, ''))} />
-          <Campo id="reg-afl-km" label="Afloje (km)" inputMode="decimal" value={aflKm} onChange={(e) => setAflKm(e.target.value)} />
-          <Campo id="reg-afl-min" label="Afloje (min)" inputMode="numeric" value={aflMin} onChange={(e) => setAflMin(e.target.value.replace(/\D/g, ''))} />
-        </div>
+        <ParteExtra
+          id="cal"
+          titulo="🔥 Calentamiento"
+          km={calKm}
+          setKm={setCalKm}
+          min={calMin}
+          setMin={setCalMin}
+          link={calLink}
+          setLink={setCalLink}
+          fcp={calFcp}
+          setFcp={setCalFcp}
+          fcm={calFcm}
+          setFcm={setCalFcm}
+        />
+        <ParteExtra
+          id="afl"
+          titulo="🧊 Afloje / enfriamiento"
+          km={aflKm}
+          setKm={setAflKm}
+          min={aflMin}
+          setMin={setAflMin}
+          link={aflLink}
+          setLink={setAflLink}
+          fcp={aflFcp}
+          setFcp={setAflFcp}
+          fcm={aflFcm}
+          setFcm={setAflFcm}
+        />
         {totalKm > (km ?? 0) && (
           <p className="mt-2 text-sm">
             Total corrido: <strong className="font-mono">{formatoKm(totalKm)} km</strong>
@@ -434,4 +483,61 @@ function formatearTiempoTipeo(v: string) {
   const d = v.replace(/\D/g, '').slice(0, 4)
   if (d.length <= 2) return d
   return `${d.slice(0, d.length - 2)}:${d.slice(-2)}`
+}
+
+/** Calentamiento o afloje: km y minutos, link de Garmin (completa km y min) y pulso. */
+function ParteExtra(p: {
+  id: string
+  titulo: string
+  km: string
+  setKm: (v: string) => void
+  min: string
+  setMin: (v: string) => void
+  link: string
+  setLink: (v: string) => void
+  fcp: string
+  setFcp: (v: string) => void
+  fcm: string
+  setFcm: (v: string) => void
+}) {
+  const [leyendo, setLeyendo] = useState(false)
+  const [aviso, setAviso] = useState('')
+  const [error, setError] = useState('')
+
+  async function leer() {
+    setError('')
+    setAviso('')
+    if (!linkGarmin(p.link)) return setError('Pegá el link (o el mensaje) que comparte Garmin Connect.')
+    setLeyendo(true)
+    const r = await llamarFuncion<DatosGarmin>('leer-garmin', { url: p.link.trim() })
+    setLeyendo(false)
+    if (r.error !== null) return setError(r.error)
+    p.setLink(r.datos.link)
+    p.setKm(String(r.datos.distancia_km).replace('.', ','))
+    p.setMin(String(Math.max(1, Math.round(r.datos.duracion_seg / 60))))
+    setAviso(`✓ Leído: ${formatoKm(r.datos.distancia_km)} km en ${formatoDuracion(r.datos.duracion_seg)}. El pulso no viene en el link: cargalo a mano si querés.`)
+  }
+
+  const conGarmin = !!linkGarmin(p.link)
+  return (
+    <fieldset className="mt-3 flex flex-col gap-2 rounded-xl bg-fondo p-3">
+      <legend className="sr-only">{p.titulo}</legend>
+      <p className="font-semibold">{p.titulo}</p>
+      <div className="flex items-end gap-2">
+        <Campo id={`reg-${p.id}-link`} className="flex-1" label="Link de Garmin (opcional)" placeholder="https://connect.garmin.com/…" value={p.link} onChange={(e) => p.setLink(e.target.value)} />
+        <Boton variante="borde" onClick={leer} disabled={leyendo || !p.link.trim()}>
+          {leyendo ? 'Leyendo…' : 'Leer'}
+        </Boton>
+      </div>
+      {aviso && <p className="text-sm font-semibold text-ok">{aviso}</p>}
+      <MensajeError>{error}</MensajeError>
+      <div className="grid grid-cols-2 gap-3">
+        <Campo id={`reg-${p.id}-km`} label="Km" inputMode="decimal" value={p.km} onChange={(e) => p.setKm(e.target.value)} />
+        <Campo id={`reg-${p.id}-min`} label="Minutos" inputMode="numeric" value={p.min} onChange={(e) => p.setMin(e.target.value.replace(/\D/g, ''))} />
+        <Campo id={`reg-${p.id}-fcp`} label="FC promedio" inputMode="numeric" value={p.fcp} onChange={(e) => p.setFcp(e.target.value.replace(/\D/g, '').slice(0, 3))} />
+        <Campo id={`reg-${p.id}-fcm`} label="FC máxima" inputMode="numeric" value={p.fcm} onChange={(e) => p.setFcm(e.target.value.replace(/\D/g, '').slice(0, 3))} />
+      </div>
+      {conGarmin && !aviso && <p className="text-xs text-texto-2">Tocá Leer para completar los km y los minutos desde Garmin.</p>}
+    </fieldset>
+  )
 }

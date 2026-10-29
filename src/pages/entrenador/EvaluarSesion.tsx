@@ -118,15 +118,11 @@ export default function EvaluarSesion() {
                 </p>
               )}
               {r.duracion_seg && <p>{formatoDuracion(r.duracion_seg)}</p>}
-              {(r.calentamiento_km || r.calentamiento_min) && (
-                <p className="text-sm text-texto-2">
-                  🔥 Calentamiento {[r.calentamiento_km ? `${formatoKm(r.calentamiento_km)} km` : null, r.calentamiento_min ? `${r.calentamiento_min} min` : null].filter(Boolean).join(' · ')}
-                </p>
+              {(r.calentamiento_km || r.calentamiento_min || r.calentamiento_garmin_url) && (
+                <ParteRegistrada titulo="🔥 Calentamiento" km={r.calentamiento_km} min={r.calentamiento_min} fcp={r.calentamiento_fc_prom} fcm={r.calentamiento_fc_max} link={r.calentamiento_garmin_url} />
               )}
-              {(r.afloje_km || r.afloje_min) && (
-                <p className="text-sm text-texto-2">
-                  🧊 Afloje {[r.afloje_km ? `${formatoKm(r.afloje_km)} km` : null, r.afloje_min ? `${r.afloje_min} min` : null].filter(Boolean).join(' · ')}
-                </p>
+              {(r.afloje_km || r.afloje_min || r.afloje_garmin_url) && (
+                <ParteRegistrada titulo="🧊 Afloje" km={r.afloje_km} min={r.afloje_min} fcp={r.afloje_fc_prom} fcm={r.afloje_fc_max} link={r.afloje_garmin_url} />
               )}
               {r.ritmo_prom_seg && (
                 <p className={claseRitmo(compararRitmo(r.ritmo_prom_seg, s.ritmo_min_seg, s.ritmo_max_seg))}>{formatoRitmo(r.ritmo_prom_seg)}/km</p>
@@ -245,3 +241,21 @@ const claseFc = (c: ReturnType<typeof compararFc>) => (c === 'en_rango' ? 'text-
 const claseRitmo = (c: ReturnType<typeof compararRitmo>) => (c === 'en_rango' ? 'text-ok' : c === 'lento' || c === 'rapido' ? 'text-mal' : '')
 
 const claseVuelta = (c: ReturnType<typeof compararVuelta>) => (c === 'en_rango' ? 'font-semibold text-ok' : c ? 'font-semibold text-mal' : '')
+
+/** Calentamiento o afloje registrado: km, minutos, pulso y link a Garmin. */
+function ParteRegistrada({ titulo, km, min, fcp, fcm, link }: { titulo: string; km?: number | null; min?: number | null; fcp?: number | null; fcm?: number | null; link?: string | null }) {
+  const pulso = fcp || fcm ? `FC ${[fcp, fcm].filter(Boolean).join(' / ')}${fcp && fcm ? ' (prom / máx)' : fcp ? ' prom' : ' máx'}` : null
+  return (
+    <p className="text-sm text-texto-2">
+      {titulo} {[km ? `${formatoKm(km)} km` : null, min ? `${min} min` : null, pulso].filter(Boolean).join(' · ')}
+      {link && (
+        <>
+          {' · '}
+          <a href={link} target="_blank" rel="noreferrer" className="font-semibold text-azul underline">
+            Garmin ↗
+          </a>
+        </>
+      )}
+    </p>
+  )
+}

@@ -81,6 +81,12 @@ export type SesionReg = {
   calentamiento_min?: number | null
   afloje_km?: number | null
   afloje_min?: number | null
+  calentamiento_garmin_url?: string | null
+  calentamiento_fc_prom?: number | null
+  calentamiento_fc_max?: number | null
+  afloje_garmin_url?: string | null
+  afloje_fc_prom?: number | null
+  afloje_fc_max?: number | null
   reps_hechas?: number | null
   rep_prom_seg?: number | null
   calorias?: number | null
