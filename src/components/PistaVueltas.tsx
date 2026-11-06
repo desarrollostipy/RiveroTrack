@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { leerDuracion } from '../lib/formato'
 import { textoDistanciaRep, textoTiempo } from '../lib/intervalos'
 import { DISTANCIAS_PISTA, resumenBloque, resumenPista, textoBloque, totalRep, tramos, type BloquePista } from '../lib/pista'
-import { Boton } from './ui'
+import { Anillo, Boton, lanzarConfeti } from './ui'
 
 type RepUI = { vueltas: string[]; rec: string }
 type BloqueUI = { clave: number; distancia_m: number; reps: RepUI[] }
@@ -61,9 +61,29 @@ export function EditorPista({ inicial, onChange }: { inicial: BloquePista[]; onC
   }
 
   const total = resumenPista(aBloques(bloques))
+  const [enVivo, setEnVivo] = useState(false)
 
   return (
     <div className="flex flex-col gap-3">
+      {bloques.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setEnVivo(true)}
+          className="boton-accion flex min-h-14 items-center justify-center gap-2 rounded-2xl text-base font-bold"
+        >
+          🏟️ Modo pista: cargar vuelta por vuelta en pantalla grande
+        </button>
+      )}
+      {enVivo && (
+        <ModoPista
+          bloques={bloques}
+          onVuelta={(clave, i, k, texto) =>
+            cambiar(clave, (x) => ({ ...x, reps: x.reps.map((y, j) => (j === i ? { ...y, vueltas: y.vueltas.map((v, q) => (q === k ? texto : v)) } : y)) }))
+          }
+          onRec={(clave, i, texto) => cambiar(clave, (x) => ({ ...x, reps: x.reps.map((y, j) => (j === i ? { ...y, rec: texto } : y)) }))}
+          onCerrar={() => setEnVivo(false)}
+        />
+      )}
       {bloques.map((b) => {
         const t = tramos(b.distancia_m)
         const res = resumenBloque(aBloques([b])[0])
@@ -198,6 +218,198 @@ export function EditorPista({ inicial, onChange }: { inicial: BloquePista[]; onC
           <b>Total:</b> {total.texto} · <b className="font-mono">{total.km.toLocaleString('es-PY')} km</b> en <b className="font-mono">{textoTiempo(total.segundos)}</b>
           {total.ritmo ? ` · ${textoTiempo(total.ritmo)}/km` : ''} <span className="text-texto-2">(sin recuperación)</span>
         </p>
+      )}
+    </div>
+  )
+}
+
+type Cursor = { b: number; i: number; k: number }
+
+/**
+ * Modo pista en vivo: pantalla completa con números gigantes y un teclado propio.
+ * Se carga cada vuelta al terminarla; entre repeticiones corre un cronómetro de recuperación
+ * que vibra al llegar a la meta. Mantiene la pantalla encendida mientras está abierto.
+ */
+function ModoPista({
+  bloques,
+  onVuelta,
+  onRec,
+  onCerrar,
+}: {
+  bloques: BloqueUI[]
+  onVuelta: (clave: number, i: number, k: number, texto: string) => void
+  onRec: (clave: number, i: number, texto: string) => void
+  onCerrar: () => void
+}) {
+  // Arranca en la primera vuelta sin tiempo.
+  const primeraVacia = (): Cursor | null => {
+    for (let b = 0; b < bloques.length; b++)
+      for (let i = 0; i < bloques[b].reps.length; i++) {
+        const k = bloques[b].reps[i].vueltas.findIndex((v) => !v)
+        if (k >= 0) return { b, i, k }
+      }
+    return null
+  }
+  const [cursor, setCursor] = useState<Cursor | null>(primeraVacia)
+  const [digitos, setDigitos] = useState('')
+  const [recDesde, setRecDesde] = useState<number | null>(null) // momento en que empezó la recuperación
+  const [meta, setMeta] = useState(() => leerTiempoVuelta(bloques[0]?.reps.find((r) => r.rec)?.rec ?? '') || 90)
+  const [ahora, setAhora] = useState(() => Date.now())
+  const [avisado, setAvisado] = useState(false)
+
+  // Pantalla siempre encendida mientras se usa (si el celular lo permite).
+  useEffect(() => {
+    let lock: { release: () => Promise<void> } | null = null
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } }
+    nav.wakeLock
+      ?.request('screen')
+      .then((l) => (lock = l))
+      .catch(() => {})
+    document.body.style.overflow = 'hidden'
+    return () => {
+      lock?.release().catch(() => {})
+      document.body.style.overflow = ''
+    }
+  }, [])
+
+  // Cronómetro de recuperación.
+  useEffect(() => {
+    if (recDesde === null) return
+    const id = setInterval(() => setAhora(Date.now()), 250)
+    return () => clearInterval(id)
+  }, [recDesde])
+  const recSeg = recDesde === null ? 0 : Math.floor((ahora - recDesde) / 1000)
+  useEffect(() => {
+    if (recDesde !== null && !avisado && recSeg >= meta) {
+      setAvisado(true)
+      navigator.vibrate?.([250, 120, 250, 120, 400])
+    }
+  }, [recSeg, meta, recDesde, avisado])
+
+  const bloque = cursor ? bloques[cursor.b] : null
+  const t = bloque ? tramos(bloque.distancia_m) : []
+
+  function avanzar(c: Cursor) {
+    const b = bloques[c.b]
+    if (c.k + 1 < tramos(b.distancia_m).length) return setCursor({ ...c, k: c.k + 1 })
+    // Terminó la repetición: si quedan otras, recuperación.
+    if (c.i + 1 < b.reps.length) {
+      setRecDesde(Date.now())
+      setAhora(Date.now())
+      setAvisado(false)
+      return setCursor({ b: c.b, i: c.i + 1, k: 0 })
+    }
+    if (c.b + 1 < bloques.length) return setCursor({ b: c.b + 1, i: 0, k: 0 })
+    setCursor(null)
+    lanzarConfeti()
+  }
+
+  function guardarVuelta() {
+    if (!cursor || !bloque || !digitos) return
+    onVuelta(bloque.clave, cursor.i, cursor.k, formatearTiempoTipeo(digitos))
+    navigator.vibrate?.(20)
+    setDigitos('')
+    avanzar(cursor)
+  }
+
+  function arrancarSiguiente() {
+    if (!cursor || !bloque || recDesde === null) return
+    // La recuperación se guarda en la repetición anterior.
+    onRec(bloque.clave, cursor.i - 1, aTexto(recSeg))
+    setRecDesde(null)
+  }
+
+  const tecla = 'flex h-16 items-center justify-center rounded-2xl bg-white/8 font-titulo text-3xl font-black active:bg-white/20'
+  const enRecuperacion = recDesde !== null && cursor !== null
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#060A17] px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-[max(env(safe-area-inset-top),1rem)] text-white" role="dialog" aria-modal="true" aria-label="Modo pista">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-widest text-white/60">🏟️ Modo pista</p>
+        <button type="button" onClick={onCerrar} className="min-h-11 rounded-full bg-white/10 px-4 font-semibold">
+          Listo ✕
+        </button>
+      </div>
+
+      {!cursor && (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+          <p className="text-6xl" aria-hidden="true">
+            🎉
+          </p>
+          <p className="font-titulo text-4xl font-black">¡Pista terminada!</p>
+          {bloques.map((b) => (
+            <p key={b.clave} className="rounded-2xl bg-white/8 px-3 py-2 text-sm font-semibold text-[#C8FF3D]">
+              📊 {textoBloque(aBloques([b])[0])}
+            </p>
+          ))}
+          <button type="button" onClick={onCerrar} className="boton-accion mt-4 min-h-14 w-full rounded-2xl text-lg font-bold">
+            Volver al registro
+          </button>
+        </div>
+      )}
+
+      {cursor && bloque && (
+        <>
+          <div className="mt-4 text-center">
+            <p className="font-titulo text-2xl font-black">
+              {bloque.reps.length} × {textoDistanciaRep(bloque.distancia_m)}
+            </p>
+            <p className="text-lg text-white/75">
+              Repetición <b className="text-white">{cursor.i + 1}</b> de {bloque.reps.length}
+              {t.length > 1 && (
+                <>
+                  {' · '}vuelta <b className="text-white">{cursor.k + 1}</b> de {t.length} ({t[cursor.k]} m)
+                </>
+              )}
+            </p>
+          </div>
+
+          {enRecuperacion ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-4">
+              <p className="text-sm font-bold uppercase tracking-widest text-[#5EEAD4]">Recuperación</p>
+              <Anillo pct={recSeg / meta} tam={230} grosor={14} color={recSeg >= meta ? '#C8FF3D' : '#5EEAD4'} fondo="rgba(255,255,255,0.1)">
+                <span className="font-titulo text-6xl font-black tabular-nums">{textoTiempo(recSeg) || '0'}</span>
+                <span className="mt-1 text-sm text-white/70">meta {textoTiempo(meta)}</span>
+              </Anillo>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => setMeta(Math.max(15, meta - 15))} className="h-11 rounded-full bg-white/10 px-4 font-bold">
+                  −15 s
+                </button>
+                <button type="button" onClick={() => setMeta(meta + 15)} className="h-11 rounded-full bg-white/10 px-4 font-bold">
+                  +15 s
+                </button>
+              </div>
+              <button type="button" onClick={arrancarSiguiente} className="boton-accion min-h-16 w-full rounded-2xl text-xl font-black">
+                ▶ Arrancar repetición {cursor.i + 1}
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-1 flex-col items-center justify-center">
+                <p className={`font-titulo text-[5.5rem] font-black leading-none tabular-nums ${digitos ? 'text-white' : 'text-white/25'}`}>
+                  {digitos ? formatearTiempoTipeo(digitos) : t[cursor.k] === 400 ? '1:28' : '0:00'}
+                </p>
+                <p className="mt-2 text-sm text-white/60">Tiempo de esta vuelta</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+                  <button key={d} type="button" className={tecla} onClick={() => setDigitos((x) => (x + d).slice(0, 4))}>
+                    {d}
+                  </button>
+                ))}
+                <button type="button" className={`${tecla} text-xl`} aria-label="Borrar" onClick={() => setDigitos((x) => x.slice(0, -1))}>
+                  ⌫
+                </button>
+                <button type="button" className={tecla} onClick={() => setDigitos((x) => (x + '0').slice(0, 4))}>
+                  0
+                </button>
+                <button type="button" className={`${tecla} !bg-[#C8FF3D] text-[#0A1206] disabled:opacity-40`} disabled={!digitos} aria-label="Guardar vuelta" onClick={guardarVuelta}>
+                  ✓
+                </button>
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   )

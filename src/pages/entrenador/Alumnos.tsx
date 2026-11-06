@@ -85,12 +85,13 @@ export default function Alumnos() {
         const actual = propias.find((s) => s.semana_inicio === lunes)
         const sesiones = actual?.sesiones ?? []
         const activas = sesiones.filter((s) => s.tipo !== 'descanso')
-        const porEvaluar = propias.flatMap((p) => p.sesiones).filter((s) => s.registro && !s.evaluacion).length
+        const pendientes = propias.flatMap((p) => p.sesiones).filter((s) => s.registro && !s.evaluacion)
+        const porEvaluar = pendientes.length
         const alertas = alertasAlumno(propias, hoy)
         if (!actual) alertas.unshift('Sin plan para esta semana')
         else if (actual.estado === 'borrador') alertas.unshift('Plan de esta semana en borrador (no lo ve)')
         const deuda = estadoDeuda(cuotas.filter((c) => c.alumno_id === a.id), hoy)
-        return { a, actual, sesiones, hechas: activas.filter((s) => s.registro).length, plan: activas.length, porEvaluar, alertas, deuda }
+        return { a, actual, sesiones, hechas: activas.filter((s) => s.registro).length, plan: activas.length, porEvaluar, pendientes, alertas, deuda }
       }),
     [alumnos, semanas, cuotas, lunes, hoy],
   )
@@ -99,6 +100,11 @@ export default function Alumnos() {
   const conPorEvaluar = filas.filter((f) => f.porEvaluar)
   const alDia = filas.filter((f) => !f.alertas.length && !f.porEvaluar)
   const visibles = (filtro === 'alertas' ? conAlertas : filtro === 'por_evaluar' ? conPorEvaluar : filas).filter((f) => !grupoFiltro || f.a.grupo_id === grupoFiltro)
+  // Tanda para evaluar en serie: de la más vieja a la más nueva.
+  const tanda = filas
+    .flatMap((f) => f.pendientes)
+    .sort((x, y) => x.fecha.localeCompare(y.fecha))
+    .map((s) => s.id)
 
   return (
     <Pantalla
@@ -128,6 +134,28 @@ export default function Alumnos() {
     >
       <MensajeError>{error}</MensajeError>
       <div className="grid grid-cols-2 gap-2">
+        <Link
+          to="/tablero"
+          className="tarjeta-heroe col-span-2 flex min-h-16 items-center justify-between gap-2 rounded-3xl px-4 py-3 font-semibold text-white"
+          style={{ background: 'linear-gradient(135deg, #2F6BFF, #0B1B3A)' }}
+        >
+          <span>
+            <span className="block text-lg font-bold">👥 Tablero del grupo</span>
+            <span className="text-sm font-normal text-white/80">Quién entrenó hoy, alertas, ciclo, cuotas y carga</span>
+          </span>
+          <span aria-hidden="true" className="text-2xl">
+            ›
+          </span>
+        </Link>
+        {tanda.length > 0 && (
+          <Link
+            to={`/evaluar/${tanda[0]}?n=${tanda.length}&cola=${tanda.slice(1).join(',')}`}
+            className="boton-accion col-span-2 flex min-h-14 items-center justify-between gap-2 rounded-3xl px-4 py-3 font-bold"
+          >
+            <span>⚡ Evaluar en serie ({tanda.length})</span>
+            <span className="text-sm font-semibold opacity-80">una tras otra ›</span>
+          </Link>
+        )}
         <Link to="/agenda" className="flex min-h-14 items-center gap-2 rounded-2xl border border-borde bg-superficie px-3 font-semibold hover:border-azul">
           <span className="text-2xl" aria-hidden="true">
             📆

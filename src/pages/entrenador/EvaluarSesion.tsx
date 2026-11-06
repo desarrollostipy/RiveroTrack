@@ -1,6 +1,6 @@
 import { compararVuelta, textoTiempo } from '../../lib/intervalos'
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../lib/supabase'
 import { mensajeError } from '../../lib/consultas'
 import { notificar } from '../../lib/push'
@@ -34,7 +34,21 @@ export default function EvaluarSesion() {
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
 
+  // Evaluar en serie: ?cola=id2,id3… son las que siguen y ?n= el total de la tanda.
+  const [params] = useSearchParams()
+  const cola = (params.get('cola') ?? '').split(',').filter(Boolean)
+  const totalTanda = Number(params.get('n')) || 0
+  const enSerie = totalTanda > 0
+  const siguiente = () => {
+    if (!cola.length) return navigate('/alumnos', { replace: true })
+    const [prox, ...resto] = cola
+    navigate(`/evaluar/${prox}?n=${totalTanda}&cola=${resto.join(',')}`, { replace: true })
+  }
+  const toque = useRef<number | null>(null)
+
   useEffect(() => {
+    setDatos(null)
+    setError('')
     ;(async () => {
       const { data: s } = await supabase.from('sesiones_planificadas').select('*, planes_semanales(alumno_id)').eq('id', sesionId!).maybeSingle()
       if (!s) return setError('No se encontró la sesión.')
@@ -74,7 +88,9 @@ export default function EvaluarSesion() {
     setGuardando(false)
     if (error) return setError(mensajeError(error))
     notificar({ tipo: 'evaluacion', sesion_planificada_id: sesionId! })
-    navigate(-1)
+    navigator.vibrate?.(15)
+    if (enSerie) siguiente()
+    else navigate(-1)
   }
 
   if (!datos) return error ? <MensajeError>{error}</MensajeError> : <Cargando pantalla />
@@ -83,7 +99,36 @@ export default function EvaluarSesion() {
   const kmPlan = kmPlanificados(s)
 
   return (
-    <Pantalla titulo="Evaluar sesión" subtitulo={`${alumno.nombre} · ${DIAS[diaSemana(s.fecha)]} ${formatoFecha(s.fecha)}`} volver={`/alumnos/${alumno.id}`}>
+    <div
+      onTouchStart={(e) => (toque.current = e.touches[0].clientX)}
+      onTouchEnd={(e) => {
+        // En serie: deslizar hacia la izquierda pasa a la siguiente sin evaluar esta.
+        if (enSerie && toque.current !== null && toque.current - e.changedTouches[0].clientX > 90) siguiente()
+        toque.current = null
+      }}
+    >
+    <Pantalla
+      titulo="Evaluar sesión"
+      subtitulo={`${alumno.nombre} · ${DIAS[diaSemana(s.fecha)]} ${formatoFecha(s.fecha)}`}
+      volver={enSerie ? '/alumnos' : `/alumnos/${alumno.id}`}
+      derecha={
+        enSerie ? (
+          <button type="button" onClick={siguiente} className="flex min-h-10 items-center gap-1 rounded-full border border-borde bg-superficie px-3 text-sm font-semibold">
+            Saltar ›
+          </button>
+        ) : undefined
+      }
+    >
+      {enSerie && (
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-borde">
+            <div className="h-full rounded-full bg-volt transition-[width] duration-500" style={{ width: `${(100 * (totalTanda - cola.length)) / totalTanda}%` }} />
+          </div>
+          <span className="font-mono text-xs text-texto-2">
+            {totalTanda - cola.length} de {totalTanda}
+          </span>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <Tarjeta className="p-3">
           <p className="mb-1 text-xs font-semibold uppercase text-texto-2">Plan</p>
@@ -234,9 +279,11 @@ export default function EvaluarSesion() {
       <AreaTexto id="comentario-eval" label="Comentario para el alumno" value={comentario} onChange={(e) => setComentario(e.target.value)} />
       <MensajeError>{error}</MensajeError>
       <Boton onClick={guardar} disabled={guardando}>
-        {guardando ? 'Guardando…' : 'Guardar evaluación'}
+        {guardando ? 'Guardando…' : enSerie && cola.length ? 'Guardar y seguir ›' : 'Guardar evaluación'}
       </Boton>
+      {enSerie && <p className="text-center text-xs text-texto-2">Deslizá hacia la izquierda para saltar esta sesión.</p>}
     </Pantalla>
+    </div>
   )
 }
 

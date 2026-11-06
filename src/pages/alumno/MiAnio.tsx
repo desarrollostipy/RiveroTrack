@@ -2,12 +2,74 @@ import { useState } from 'react'
 import { useMiAlumno } from '../../lib/alumno'
 import { calcularLogros, useHistorial } from '../../components/Logros'
 import { resumenAnio } from '../../lib/comunidad'
-import { hoyPY } from '../../lib/fechas'
+import { hoyPY, lunesDe, sumarDias } from '../../lib/fechas'
+import type { Historial } from '../../lib/historial'
 import { formatoFecha, formatoKm, formatoRitmo } from '../../lib/formato'
 import { tarjetaLista } from '../../lib/tarjetas'
 import { Pantalla } from '../../components/Pantalla'
 import { BotonCompartir } from '../../components/Compartir'
 import { Cargando, SelectorPeriodo, Tarjeta, Vacio } from '../../components/ui'
+
+const NIVELES = ['var(--color-borde)', 'rgba(200,255,61,0.28)', 'rgba(200,255,61,0.5)', 'rgba(200,255,61,0.75)', '#C8FF3D']
+const MESES_CORTOS = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
+
+/** Un cuadrito por día del año: más color, más km. Se ve la constancia de un vistazo. */
+export function MapaAnio({ h, anio }: { h: Historial; anio: number }) {
+  const porDia = new Map<string, number>()
+  for (const s of h.sesiones) if (s.fecha.startsWith(String(anio))) porDia.set(s.fecha, (porDia.get(s.fecha) ?? 0) + Math.max(s.km_total, 0.1))
+  const hoy = hoyPY()
+  const inicio = lunesDe(`${anio}-01-01`)
+  const fin = `${anio}-12-31`
+  const semanas: string[][] = []
+  for (let l = inicio; l <= fin; l = sumarDias(l, 7)) semanas.push(Array.from({ length: 7 }, (_, i) => sumarDias(l, i)))
+  const nivel = (km: number | undefined) => (!km ? 0 : km < 5 ? 1 : km < 10 ? 2 : km < 16 ? 3 : 4)
+  const dias = porDia.size
+  return (
+    <Tarjeta>
+      <div className="mb-2 flex items-baseline justify-between">
+        <p className="font-semibold">Días entrenados</p>
+        <p className="font-mono text-sm text-texto-2">
+          <b className="text-tinta">{dias}</b> días
+        </p>
+      </div>
+      {/* Arranca mostrando lo más reciente (a la derecha). */}
+      <div className="overflow-x-auto pb-1" ref={(el) => {
+          if (el) el.scrollLeft = el.scrollWidth
+        }}>
+        <div className="flex gap-[3px]" role="img" aria-label={`Calendario del ${anio}: ${dias} días con entrenamiento`}>
+          {semanas.map((sem) => {
+            // La letra del mes va en la semana donde cae el día 1.
+            const primero = sem.find((d) => d.endsWith('-01') && d.startsWith(String(anio)))
+            return (
+              <div key={sem[0]} className="flex flex-col gap-[3px]">
+                <span className="h-3 w-[11px] overflow-visible whitespace-nowrap text-[0.55rem] leading-3 text-texto-2">{primero ? MESES_CORTOS[Number(primero.slice(5, 7)) - 1] : ''}</span>
+                {sem.map((d) => {
+                  const fuera = !d.startsWith(String(anio)) || d > hoy
+                  const km = porDia.get(d)
+                  return (
+                    <span
+                      key={d}
+                      title={km ? `${formatoFecha(d)}: ${formatoKm(km)} km` : formatoFecha(d)}
+                      className="h-[11px] w-[11px] rounded-[3px]"
+                      style={{ background: fuera ? 'transparent' : NIVELES[nivel(km)], boxShadow: nivel(km) === 4 ? '0 0 6px rgba(200,255,61,0.6)' : undefined }}
+                    />
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      <p className="mt-2 flex items-center justify-end gap-1 text-[0.65rem] text-texto-2">
+        Menos
+        {NIVELES.map((c) => (
+          <span key={c} className="h-[10px] w-[10px] rounded-[3px]" style={{ background: c }} />
+        ))}
+        Más km
+      </p>
+    </Tarjeta>
+  )
+}
 
 /** "Mi año": los números del año, para mirar y compartir (estilo resumen anual). */
 export default function MiAnio() {
@@ -57,6 +119,8 @@ export default function MiAnio() {
               </p>
             )}
           </div>
+
+          <MapaAnio h={h} anio={anio} />
 
           <Tarjeta>
             <p className="mb-2 font-semibold">Km por mes</p>

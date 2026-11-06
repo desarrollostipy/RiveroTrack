@@ -67,11 +67,29 @@ async function consultarSemanas(opciones: { alumnoId?: string; desde: string; ha
   }))
 }
 
+// Colores nuevos por tipo, para reconocer el día de un vistazo:
+// pista naranja, fondo azul, rodaje (regenerativo) verde, competencia dorado.
+// Solo reemplazan los colores de fábrica: si el entrenador eligió otro color, se respeta.
+const COLORES_NUEVOS: Record<string, { de: string; a: string }> = {
+  pista: { de: '#1446B8', a: '#F26B1D' },
+  series: { de: '#0B1B3A', a: '#E2366B' },
+  fondo: { de: '#0F6E78', a: '#2F6BFF' },
+  rodaje: { de: '#56617A', a: '#1FA463' },
+  especifico: { de: '#6B4E8C', a: '#8B5CF6' },
+}
+const COLORES_EXTRA: Record<string, string> = { competencia: '#D99A0B', regenerativo: '#1FA463', carrera: '#D99A0B' }
+
+export function colorTipo(t: TipoSesion): string {
+  const n = COLORES_NUEVOS[t.codigo]
+  if (n && t.color.toUpperCase() === n.de) return n.a
+  return COLORES_EXTRA[t.codigo] && /^#76819A$/i.test(t.color) ? COLORES_EXTRA[t.codigo] : t.color
+}
+
 let tiposCache: TipoSesion[] | null = null
 export async function cargarTipos(): Promise<TipoSesion[]> {
   if (tiposCache) return tiposCache
   const { data } = await supabase.from('tipos_sesion').select('*').order('orden')
-  tiposCache = (data ?? []) as TipoSesion[]
+  tiposCache = ((data ?? []) as TipoSesion[]).map((t) => ({ ...t, color: colorTipo(t) }))
   return tiposCache
 }
 

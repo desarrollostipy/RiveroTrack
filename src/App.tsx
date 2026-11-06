@@ -6,6 +6,7 @@ import { configFaltante } from './lib/supabase'
 import { MiAlumnoProvider, useMiAlumno } from './lib/alumno'
 import { useNoLeidos } from './lib/chat'
 import { ConPestanas, type Pestana } from './components/ConPestanas'
+import { CargarRapido } from './components/CargarRapido'
 import { Boton, Cargando, Tarjeta } from './components/ui'
 import { IconoAlumnos, IconoCarreras, IconoChat, IconoCuentas, IconoEvolucion, IconoHoy, IconoPlanes, IconoSemana } from './components/Iconos'
 import Ingreso from './pages/Ingreso'
@@ -47,6 +48,7 @@ const MensajeMasivo = pantalla(() => import('./pages/entrenador/MensajeMasivo'))
 const RankingEntrenador = pantalla(() => import('./pages/entrenador/RankingEntrenador'))
 const PlanCarrera = pantalla(() => import('./pages/entrenador/PlanCarrera'))
 const Finanzas = pantalla(() => import('./pages/entrenador/Finanzas'))
+const Tablero = pantalla(() => import('./pages/entrenador/Tablero'))
 const MisPagos = pantalla(() => import('./pages/alumno/MisPagos'))
 const Herramientas = pantalla(() => import('./pages/entrenador/Herramientas'))
 const Anuncios = pantalla(() => import('./pages/entrenador/Anuncios'))
@@ -153,6 +155,7 @@ function RutasEntrenador({ miId }: { miId: string }) {
         <Route path="/ranking" element={<RankingEntrenador />} />
         <Route path="/plan-carrera/:id" element={<PlanCarrera />} />
         <Route path="/finanzas" element={<Finanzas />} />
+        <Route path="/tablero" element={<Tablero />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="*" element={<Navigate to="/alumnos" replace />} />
       </Routes>
@@ -166,7 +169,7 @@ function RutasAlumno({ miId }: { miId: string }) {
   return (
     <Suspense fallback={<Cargando pantalla />}>
       <Routes>
-        <Route element={<ConPestanas pestanas={pestanasAlumno(total)} />}>
+        <Route element={<ConPestanas pestanas={pestanasAlumno(total)} central={<CargarRapido />} />}>
           <Route path="/hoy" element={<Hoy />} />
           <Route path="/semana" element={<MiSemana />} />
           <Route path="/chat" element={<ChatAlumno />} />

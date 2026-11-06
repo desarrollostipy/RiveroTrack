@@ -18,7 +18,7 @@ const sistemaOscuro = () => window.matchMedia?.('(prefers-color-scheme: dark)').
 export function aplicarTema(pref: PreferenciaTema = preferenciaTema()) {
   const oscuro = pref === 'oscuro' || (pref === 'auto' && sistemaOscuro())
   document.documentElement.dataset.theme = oscuro ? 'oscuro' : 'claro'
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', oscuro ? '#0A1428' : '#0B1B3A')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', oscuro ? '#060A17' : '#F2F4FA')
 }
 
 export function guardarTema(pref: PreferenciaTema) {

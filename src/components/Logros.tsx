@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { cargarHistorial, historialEnMemoria, rachas, type Historial } from '../lib/historial'
-import { hoyPY } from '../lib/fechas'
+import { hoyPY, lunesDe } from '../lib/fechas'
+import { totalRep } from '../lib/pista'
 import { formatoFecha, formatoKm } from '../lib/formato'
 import { tarjetaLogro } from '../lib/tarjetas'
 import { BotonCompartir } from './Compartir'
-import { Cargando, Tarjeta, Titulo } from './ui'
+import { Cargando, lanzarConfeti, Tarjeta, Titulo } from './ui'
 
 type Logro = { icono: string; nombre: string; detalle: string; logrado: boolean; actual: number; meta: number; color: string }
 
@@ -15,7 +16,15 @@ export function calcularLogros(h: Historial) {
   const corridas = h.carreras.filter((c) => c.resultado_tiempo_seg)
   const objetivo = corridas.some((c) => c.tiempo_objetivo_seg && c.resultado_tiempo_seg! <= c.tiempo_objetivo_seg)
   const r = rachas(h)
-  const L = (icono: string, nombre: string, detalle: string, actual: number, meta: number, color: string): Logro => ({
+  // Para los logros nuevos: mejor mes, sesiones de pista, repeticiones, semana perfecta y desnivel.
+  const porMes = new Map<string, number>()
+  for (const s of h.sesiones) porMes.set(s.fecha.slice(0, 7), (porMes.get(s.fecha.slice(0, 7)) ?? 0) + s.km_total)
+  const mejorMes = Math.max(0, ...porMes.values())
+  const pista = h.sesiones.filter((s) => s.tipo === 'pista' || s.pista.length > 0).length
+  const reps = h.sesiones.reduce((t, s) => t + s.pista.reduce((u, b) => u + b.reps.filter((x) => totalRep(x, b.distancia_m)).length, 0), 0)
+  const perfecta = h.semanas.some((s) => s.sesiones_plan > 0 && s.sesiones_hechas >= s.sesiones_plan && s.semana_inicio < lunesDe(hoyPY())) ? 1 : 0
+  const desnivel = Math.max(0, ...h.sesiones.map((s) => s.desnivel_m ?? 0))
+  const L =(icono: string, nombre: string, detalle: string, actual: number, meta: number, color: string): Logro => ({
     icono, nombre, detalle, actual: Math.min(actual, meta), meta, logrado: actual >= meta, color,
   })
   return {
@@ -35,6 +44,12 @@ export function calcularLogros(h: Historial) {
       L('🏁', 'A la cancha', 'Corriste tu primera carrera', corridas.length, 1, '#0B1B3A'),
       L('🎯', 'Objetivo cumplido', 'Bajaste tu tiempo objetivo en una carrera', objetivo ? 1 : 0, 1, '#B3261E'),
       L('📍', 'Presente', '10 entrenamientos grupales', h.asistencias.length, 10, '#1446B8'),
+      L('📆', '100 km en un mes', 'Sumaste 100 km en un mismo mes', mejorMes, 100, '#2F6BFF'),
+      L('🏟️', 'Pistero', '10 sesiones de pista', pista, 10, '#F26B1D'),
+      L('🔁', 'Series de acero', '50 repeticiones cargadas en pista', reps, 50, '#E2366B'),
+      L('✨', 'Semana perfecta', 'Hiciste todas las sesiones de una semana', perfecta, 1, '#1FA463'),
+      L('🏁', 'Competidor', 'Corriste 5 carreras', corridas.length, 5, '#D99A0B'),
+      L('⛰️', 'Escalador', 'Una sesión con 300 m de desnivel', desnivel, 300, '#8B5CF6'),
     ],
   }
 }
@@ -51,13 +66,49 @@ export { useHistorial }
 /** Rachas y logros: a todo color los conseguidos, en gris con progreso los pendientes. */
 export function Logros({ alumnoId, nombre }: { alumnoId: string; nombre?: string }) {
   const h = useHistorial(alumnoId)
-  if (!h) return <Cargando />
-  const { racha, logros, km, n } = calcularLogros(h)
+  const [recienes, setRecienes] = useState<string[]>([])
+  const datos = h ? calcularLogros(h) : null
+  const claveLogrados = datos ? datos.logros.filter((l) => l.logrado).map((l) => l.nombre).join('|') : ''
+
+  // Festejo: si hay logros que este celular todavía no había visto, confeti y cartel.
+  // Solo para el alumno (con nombre); el entrenador mira sin festejar.
+  useEffect(() => {
+    if (!datos || !nombre) return
+    const clave = `rivero-logros-vistos-${alumnoId}`
+    let vistos: string[] | null = null
+    try {
+      vistos = JSON.parse(localStorage.getItem(clave) ?? 'null')
+    } catch {
+      vistos = null
+    }
+    const ahora = claveLogrados ? claveLogrados.split('|') : []
+    if (Array.isArray(vistos)) {
+      const nuevos = ahora.filter((n) => !vistos!.includes(n))
+      if (nuevos.length) {
+        setRecienes(nuevos)
+        lanzarConfeti()
+      }
+    }
+    try {
+      localStorage.setItem(clave, JSON.stringify(ahora))
+    } catch {
+      /* sin almacenamiento */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveLogrados, alumnoId, nombre])
+
+  if (!h || !datos) return <Cargando />
+  const { racha, logros, km, n } = datos
   const conseguidos = logros.filter((l) => l.logrado).length
 
   return (
     <Tarjeta>
       <Titulo>🏅 Rachas y logros</Titulo>
+      {recienes.length > 0 && (
+        <div className="mb-3 animate-pop rounded-2xl boton-accion px-3 py-2 text-center font-bold">
+          🎉 ¡Nuevo logro{recienes.length > 1 ? 's' : ''}: {recienes.join(', ')}!
+        </div>
+      )}
       <div className="mb-3 grid grid-cols-3 gap-2 text-center">
         <div className={`rounded-xl p-2 ${racha.actual > 0 ? 'bg-linear-to-br from-orange-500 to-red-600 text-white' : 'bg-fondo'}`}>
           <p className="font-titulo text-2xl font-extrabold">🔥 {racha.actual}</p>

@@ -94,7 +94,7 @@ function guardar(clave: string, valor: string) {
 }
 function estiloGuardado(): Estilo {
   const e = leer('rivero-estilo-imagen')
-  return e === 'blanco' || e === 'transparente' ? e : 'azul'
+  return ESTILOS.some((x) => x.valor === e) ? (e as Estilo) : 'noche'
 }
 function formatoGuardado(): Formato {
   return leer('rivero-formato-imagen') === 'publicacion' ? 'publicacion' : 'historia'
@@ -216,7 +216,26 @@ export function BotonCompartir({
             )}
           </div>
         )}
-        {!foto && <Pestanas valor={estilo} onChange={elegir} opciones={ESTILOS} />}
+        {!foto && (
+          <div role="radiogroup" aria-label="Diseño de la imagen" className="flex justify-between gap-1.5">
+            {ESTILOS.map((e) => (
+              <button
+                key={e.valor}
+                type="button"
+                role="radio"
+                aria-checked={estilo === e.valor}
+                onClick={() => elegir(e.valor)}
+                className="flex flex-1 flex-col items-center gap-1 text-[0.7rem] font-semibold"
+              >
+                <span
+                  className={`h-11 w-11 rounded-2xl border-2 transition-transform ${estilo === e.valor ? 'scale-110 border-volt shadow-[0_0_14px_-2px_rgba(200,255,61,0.7)]' : 'border-borde'}`}
+                  style={{ background: e.muestra }}
+                />
+                <span className={estilo === e.valor ? 'text-tinta' : 'text-texto-2'}>{e.texto}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <div
           className={`relative mx-auto w-full overflow-hidden rounded-2xl shadow-lg ${formato === 'historia' ? 'aspect-[9/16] max-w-[14rem]' : 'aspect-[4/5] max-w-xs'}`}
           style={fondoVista}

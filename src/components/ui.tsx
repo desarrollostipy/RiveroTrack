@@ -12,11 +12,96 @@ import {
 type Variante = 'primario' | 'oscuro' | 'borde' | 'peligro' | 'texto'
 
 const ESTILOS: Record<Variante, string> = {
-  primario: 'bg-azul text-white hover:bg-azul-hover',
+  primario: 'boton-accion',
   oscuro: 'bg-marino text-white hover:bg-marino/90',
-  borde: 'border border-borde bg-superficie text-tinta hover:bg-fondo',
+  borde: 'border border-borde bg-superficie text-tinta hover:border-azul/50',
   peligro: 'border border-mal/30 bg-superficie text-mal hover:bg-mal/5',
   texto: 'text-azul hover:bg-azul/10',
+}
+
+/** Número que sube animado hasta su valor (km, kcal…). */
+export function Numero({ valor, decimales = 0, duracion = 900 }: { valor: number; decimales?: number; duracion?: number }) {
+  const [v, setV] = useState(valor)
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || !valor) {
+      setV(valor)
+      return
+    }
+    let raf = 0
+    const t0 = performance.now()
+    const paso = (t: number) => {
+      const k = Math.min(1, (t - t0) / duracion)
+      setV(valor * (1 - Math.pow(1 - k, 3)))
+      if (k < 1) raf = requestAnimationFrame(paso)
+    }
+    raf = requestAnimationFrame(paso)
+    return () => cancelAnimationFrame(raf)
+  }, [valor, duracion])
+  return <>{v.toLocaleString('es-PY', { minimumFractionDigits: decimales, maximumFractionDigits: decimales })}</>
+}
+
+/** Anillo de progreso que se llena al aparecer. */
+export function Anillo({
+  pct,
+  tam = 84,
+  grosor = 9,
+  color = 'var(--color-volt)',
+  fondo = 'rgba(255,255,255,0.14)',
+  children,
+}: {
+  pct: number
+  tam?: number
+  grosor?: number
+  color?: string
+  fondo?: string
+  children?: ReactNode
+}) {
+  const r = (tam - grosor) / 2
+  const c = 2 * Math.PI * r
+  const [lleno, setLleno] = useState(0)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setLleno(Math.max(0, Math.min(1, pct))))
+    return () => cancelAnimationFrame(id)
+  }, [pct])
+  return (
+    <div className="relative shrink-0" style={{ width: tam, height: tam }}>
+      <svg width={tam} height={tam} className="-rotate-90" aria-hidden="true">
+        <circle cx={tam / 2} cy={tam / 2} r={r} fill="none" stroke={fondo} strokeWidth={grosor} />
+        <circle
+          cx={tam / 2}
+          cy={tam / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={grosor}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - lleno)}
+          style={{ transition: 'stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1)', filter: `drop-shadow(0 0 6px ${color})` }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center leading-none">{children}</div>
+    </div>
+  )
+}
+
+/** Lluvia de confeti para festejar (no hace nada si el celular pide reducir movimiento). */
+export function lanzarConfeti(cantidad = 70) {
+  if (typeof document === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+  const colores = ['#C8FF3D', '#5B8BFF', '#FF6B6B', '#F2B544', '#F0A6DB', '#FFFFFF']
+  for (let i = 0; i < cantidad; i++) {
+    const p = document.createElement('span')
+    p.className = 'confeti'
+    p.style.left = `${Math.random() * 100}vw`
+    p.style.background = colores[i % colores.length]
+    p.style.setProperty('--x', `${(Math.random() - 0.5) * 200}px`)
+    p.style.setProperty('--r', `${360 + Math.random() * 720}deg`)
+    p.style.setProperty('--dur', `${1.8 + Math.random() * 1.6}s`)
+    p.style.animationDelay = `${Math.random() * 0.4}s`
+    document.body.appendChild(p)
+    setTimeout(() => p.remove(), 4200)
+  }
+  navigator.vibrate?.([30, 40, 30])
 }
 
 export function Boton({
@@ -28,7 +113,7 @@ export function Boton({
   return (
     <button
       type={type}
-      className={`min-h-11 rounded-xl px-4 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${ESTILOS[variante]} ${className}`}
+      className={`min-h-11 rounded-2xl px-4 font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${ESTILOS[variante]} ${className}`}
       {...props}
     />
   )
@@ -106,10 +191,10 @@ export function Opciones<T extends string | number>({
               type="button"
               aria-pressed={activo}
               onClick={() => onChange(o.valor)}
-              className={`min-h-11 rounded-full border px-4 text-sm font-semibold transition-colors ${
-                activo ? 'border-transparent text-white' : 'border-borde bg-superficie text-tinta hover:bg-fondo'
+              className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${
+                activo ? `border-transparent ${o.color ? 'text-white' : 'boton-accion'}` : 'border-borde bg-superficie text-tinta hover:border-azul/50'
               }`}
-              style={activo ? { background: o.color ?? 'var(--color-azul)' } : undefined}
+              style={activo && o.color ? { background: o.color } : undefined}
             >
               {o.texto}
             </button>
@@ -121,13 +206,13 @@ export function Opciones<T extends string | number>({
 }
 
 export function Tarjeta({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`rounded-2xl border border-borde bg-superficie p-4 ${className}`} {...props} />
+  return <div className={`rounded-3xl border border-borde bg-superficie p-4 shadow-[0_12px_32px_-24px_rgba(0,0,0,0.6)] ${className}`} {...props} />
 }
 
 export function Titulo({ children, accion }: { children: ReactNode; accion?: ReactNode }) {
   return (
     <div className="mb-2 flex items-center justify-between gap-2">
-      <h2 className="font-titulo text-lg font-extrabold">{children}</h2>
+      <h2 className="font-titulo text-lg font-extrabold tracking-tight">{children}</h2>
       {accion}
     </div>
   )
@@ -174,8 +259,8 @@ export function Semaforo({ resultado }: { resultado: keyof typeof SEMAFORO }) {
 export function Indicador({ valor, texto, tono = 'normal' }: { valor: ReactNode; texto: string; tono?: 'normal' | 'ok' | 'mal' | 'azul' }) {
   const color = { normal: 'text-tinta', ok: 'text-ok', mal: 'text-mal', azul: 'text-azul' }[tono]
   return (
-    <div className="rounded-2xl border border-borde bg-superficie p-3">
-      <p className={`font-titulo text-2xl font-extrabold ${color}`}>{valor}</p>
+    <div className="rounded-3xl border border-borde bg-superficie p-3">
+      <p className={`font-titulo text-3xl font-extrabold tracking-tight ${color}`}>{typeof valor === 'number' ? <Numero valor={valor} /> : valor}</p>
       <p className="text-xs text-texto-2">{texto}</p>
     </div>
   )
@@ -184,7 +269,7 @@ export function Indicador({ valor, texto, tono = 'normal' }: { valor: ReactNode;
 /** Pestañas internas de una pantalla. */
 export function Pestanas<T extends string>({ opciones, valor, onChange }: { opciones: { valor: T; texto: string }[]; valor: T; onChange: (v: T) => void }) {
   return (
-    <div role="tablist" className="flex rounded-xl bg-borde/60 p-1">
+    <div role="tablist" className="flex rounded-2xl border border-borde bg-superficie p-1">
       {opciones.map((o) => (
         <button
           key={o.valor}
@@ -192,7 +277,7 @@ export function Pestanas<T extends string>({ opciones, valor, onChange }: { opci
           type="button"
           aria-selected={o.valor === valor}
           onClick={() => onChange(o.valor)}
-          className={`min-h-11 flex-1 rounded-lg text-sm font-semibold ${o.valor === valor ? 'bg-superficie text-azul shadow-sm' : 'text-texto-2'}`}
+          className={`min-h-11 min-w-0 flex-1 whitespace-nowrap rounded-xl px-1 text-[0.8rem] font-semibold tracking-tight ${o.valor === valor ? 'bg-tinta text-fondo shadow-sm' : 'text-texto-2'}`}
         >
           {o.texto}
         </button>
@@ -215,14 +300,15 @@ export function Hoja({ titulo, abierta, onCerrar, children }: { titulo: string; 
   }, [abierta, onCerrar])
   if (!abierta) return null
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-marino/50" onClick={onCerrar}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/55 backdrop-blur-sm" onClick={onCerrar}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-t-3xl bg-fondo px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4"
+        className="max-h-[90dvh] w-full max-w-xl animate-entrar overflow-y-auto rounded-t-[2rem] border-t border-borde bg-fondo px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-2"
       >
+        <div className="mx-auto mb-2 h-1.5 w-10 rounded-full bg-texto-2/40" aria-hidden="true" />
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-titulo text-xl font-extrabold">{titulo}</h2>
           <Boton variante="texto" onClick={onCerrar} aria-label="Cerrar">
@@ -318,9 +404,21 @@ export function GloboEstado({ estado, className = '' }: { estado: ReturnType<typ
 }
 
 export function Cargando({ pantalla = false }: { pantalla?: boolean }) {
+  // Pantalla completa: el logo late y una luz verde recorre la barra.
+  if (pantalla)
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-6" role="status">
+        <Logo className="splash-logo h-24 w-56" />
+        <div className="splash-barra h-1 w-40 rounded-full bg-borde" aria-hidden="true" />
+        <span className="sr-only">Cargando…</span>
+      </div>
+    )
   return (
-    <div className={`flex items-center justify-center text-texto-2 ${pantalla ? 'min-h-dvh' : 'py-10'}`} role="status">
-      Cargando…
+    <div className="flex items-center justify-center gap-2 py-10 text-texto-2" role="status">
+      <span className="h-2 w-2 animate-bounce rounded-full bg-volt [animation-delay:-0.2s]" aria-hidden="true" />
+      <span className="h-2 w-2 animate-bounce rounded-full bg-azul [animation-delay:-0.1s]" aria-hidden="true" />
+      <span className="h-2 w-2 animate-bounce rounded-full bg-volt" aria-hidden="true" />
+      <span className="sr-only">Cargando…</span>
     </div>
   )
 }

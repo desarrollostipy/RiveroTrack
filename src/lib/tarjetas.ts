@@ -7,15 +7,17 @@ export type Dato = { etiqueta: string; valor: string }
 export type Barra = { etiqueta: string; valor: number; texto?: string; destacada?: boolean }
 export type Grafico = { titulo: string; barras?: Barra[]; ritmos?: number[] }
 export type Fila = { icono: string; texto: string; valor: string; progreso?: number; cumplido?: boolean }
-export type Estilo = 'azul' | 'blanco' | 'transparente'
+export type Estilo = 'noche' | 'fuego' | 'azul' | 'blanco' | 'transparente'
 export type Formato = 'historia' | 'publicacion'
 // foto: una foto propia de fondo (no se sube a ningún lado: se dibuja en el celular).
 export type Diseno = { fondo: Estilo; formato: Formato; foto?: ImageBitmap | null }
 
-export const ESTILOS: { valor: Estilo; texto: string }[] = [
-  { valor: 'azul', texto: '🔵 Azul' },
-  { valor: 'blanco', texto: '⚪ Blanco' },
-  { valor: 'transparente', texto: '🔲 Sin fondo' },
+export const ESTILOS: { valor: Estilo; texto: string; muestra: string }[] = [
+  { valor: 'noche', texto: 'Noche', muestra: 'radial-gradient(circle at 80% 15%, #2F6BFF 0, transparent 55%), radial-gradient(circle at 15% 90%, #C8FF3D 0, transparent 45%), #060A17' },
+  { valor: 'fuego', texto: 'Fuego', muestra: 'linear-gradient(140deg, #FF8A1A, #E2366B 55%, #5B1FA8)' },
+  { valor: 'azul', texto: 'Azul', muestra: 'linear-gradient(140deg, #071330, #0B1B3A 55%, #1446B8)' },
+  { valor: 'blanco', texto: 'Blanco', muestra: 'linear-gradient(140deg, #FFFFFF, #E2EBFF)' },
+  { valor: 'transparente', texto: 'Sin fondo', muestra: 'repeating-conic-gradient(#8a93a6 0% 25%, #b9c0cf 0% 50%) 50% / 12px 12px' },
 ]
 
 export const FORMATOS: { valor: Formato; texto: string }[] = [
@@ -42,7 +44,10 @@ const TEXTO = (peso: number, px: number) => `${peso} ${px}px "IBM Plex Sans", ${
 const MONO = (peso: number, px: number) => `${peso} ${px}px "IBM Plex Mono", ${EMOJI}, monospace`
 
 type Paleta = { texto: string; suave: string; acento: string; acentoSuave: string; panel: string; logo: string; sombra: boolean }
+const VOLT = '#C8FF3D'
 const PALETAS: Record<Estilo, Paleta> = {
+  noche: { texto: '#FFFFFF', suave: 'rgba(255,255,255,0.72)', acento: VOLT, acentoSuave: 'rgba(200,255,61,0.4)', panel: 'rgba(255,255,255,0.07)', logo: '/logo-rivero-oscuro.png', sombra: false },
+  fuego: { texto: '#FFFFFF', suave: 'rgba(255,255,255,0.86)', acento: '#FFE08A', acentoSuave: 'rgba(255,224,138,0.45)', panel: 'rgba(30,0,40,0.22)', logo: '/logo-rivero-oscuro.png', sombra: false },
   azul: { texto: '#FFFFFF', suave: 'rgba(255,255,255,0.72)', acento: CELESTE, acentoSuave: 'rgba(126,166,255,0.42)', panel: 'rgba(255,255,255,0.08)', logo: '/logo-rivero-oscuro.png', sombra: false },
   blanco: { texto: MARINO, suave: '#5A6784', acento: AZUL, acentoSuave: 'rgba(20,70,184,0.25)', panel: 'rgba(20,70,184,0.07)', logo: '/logo-rivero.png', sombra: false },
   transparente: { texto: '#FFFFFF', suave: 'rgba(255,255,255,0.92)', acento: '#FFFFFF', acentoSuave: 'rgba(255,255,255,0.4)', panel: 'rgba(11,27,58,0.42)', logo: '/logo-rivero-oscuro.png', sombra: true },
@@ -111,6 +116,13 @@ async function lienzo(d: Diseno) {
       fondo.addColorStop(0, '#071330')
       fondo.addColorStop(0.55, MARINO)
       fondo.addColorStop(1, AZUL)
+    } else if (estilo === 'noche') {
+      fondo.addColorStop(0, '#060A17')
+      fondo.addColorStop(1, '#0B1430')
+    } else if (estilo === 'fuego') {
+      fondo.addColorStop(0, '#FF8A1A')
+      fondo.addColorStop(0.55, '#E2366B')
+      fondo.addColorStop(1, '#5B1FA8')
     } else {
       fondo.addColorStop(0, '#FFFFFF')
       fondo.addColorStop(0.6, '#F4F7FF')
@@ -118,10 +130,22 @@ async function lienzo(d: Diseno) {
     }
     g.fillStyle = fondo
     g.fillRect(0, 0, ANCHO, altoTotal)
+    if (estilo === 'noche') {
+      // Luces suaves: azul arriba a la derecha y verde lima abajo a la izquierda.
+      const luz = (x: number, y: number, r: number, color: string) => {
+        const rg = g.createRadialGradient(x, y, 0, x, y, r)
+        rg.addColorStop(0, color)
+        rg.addColorStop(1, 'rgba(0,0,0,0)')
+        g.fillStyle = rg
+        g.fillRect(0, 0, ANCHO, altoTotal)
+      }
+      luz(ANCHO * 0.95, altoTotal * 0.05, 900, 'rgba(47,107,255,0.45)')
+      luz(ANCHO * 0.05, altoTotal * 0.95, 760, 'rgba(200,255,61,0.22)')
+    }
     // Las "líneas de velocidad" del logo.
     g.save()
-    g.globalAlpha = estilo === 'azul' ? 0.09 : 0.06
-    g.fillStyle = estilo === 'azul' ? CELESTE : AZUL
+    g.globalAlpha = estilo === 'blanco' ? 0.06 : estilo === 'fuego' ? 0.1 : 0.09
+    g.fillStyle = estilo === 'blanco' ? AZUL : estilo === 'noche' ? VOLT : estilo === 'fuego' ? '#FFFFFF' : CELESTE
     for (let i = 0; i < 7; i++) {
       const y = 820 + (historia ? 420 : 0) + i * 70
       g.beginPath()

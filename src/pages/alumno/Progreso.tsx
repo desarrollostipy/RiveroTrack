@@ -22,7 +22,11 @@ export default function Progreso() {
   const [evo, setEvo] = useState<Awaited<ReturnType<typeof cargarEvolucion>> | null>(null)
   const [resultados, setResultados] = useState<Resultado[]>([])
   const [marcas, setMarcas] = useState<Marca[]>([])
-  const [tab, setTab] = useState<'resumen' | 'records' | 'logros' | 'ranking'>('resumen')
+  // ?tab=records abre directo esa pestaña (sirve para links desde otras pantallas).
+  const [tab, setTab] = useState<'resumen' | 'records' | 'logros' | 'ranking'>(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    return t === 'records' || t === 'logros' || t === 'ranking' ? t : 'resumen'
+  })
   const h = useHistorial(alumno.id)
 
   useEffect(() => {

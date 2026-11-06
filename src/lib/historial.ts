@@ -3,6 +3,7 @@
 import { supabase } from './supabase'
 import { hoyPY, lunesDe, primerDiaMes, sumarDias, sumarMeses } from './fechas'
 import type { Split } from './tipos'
+import { leerBloques, totalRep, type BloquePista } from './pista'
 
 export type SesionHist = {
   fecha: string
@@ -15,6 +16,7 @@ export type SesionHist = {
   desnivel_m: number | null
   tipo: string | null
   resumen: string | null
+  pista: BloquePista[] // pista vuelta por vuelta (vacío si no se cargó así)
 }
 
 export type Historial = {
@@ -54,6 +56,7 @@ export async function cargarHistorial(alumnoId: string): Promise<Historial> {
         desnivel_m: x.datos_crudos?.desnivel_m ?? null,
         tipo: sp?.tipo ?? null,
         resumen: sp?.resumen ?? null,
+        pista: leerBloques(x.pista_bloques),
       }
     }),
     semanas: ((v.data ?? []) as Historial['semanas']).map((x) => ({ ...x, km_plan: Number(x.km_plan), km_real: Number(x.km_real) })),
@@ -121,7 +124,26 @@ export function calcularRecords(h: Historial): Record_[] {
     const m = min(h.marcas.filter((x) => x.distancia === d), (x) => x.tiempo_seg)
     if (m) r.push({ clave: `marca-${d}`, icono: '🏅', titulo: `Marca ${d}`, valor: hms(m.tiempo_seg), detalle: m.carrera ?? 'Marca personal', fecha: m.fecha, numero: m.tiempo_seg })
   }
+
+  // Pista: la mejor repetición de cada distancia cargada vuelta por vuelta.
+  for (const p of mejoresPista(h)) {
+    r.push({ clave: `pista-${p.m}`, icono: '🏟️', titulo: `Mejor ${p.m} m en pista`, valor: mmss(p.seg), detalle: `${mmss(Math.round((p.seg / p.m) * 1000))}/km`, fecha: p.fecha, numero: p.seg })
+  }
   return r
+}
+
+/** Mejor repetición por distancia (200, 400, 800, 1000…) de las sesiones de pista. */
+export function mejoresPista(h: Historial) {
+  const mejor = new Map<number, { m: number; seg: number; fecha: string }>()
+  for (const s of h.sesiones)
+    for (const b of s.pista)
+      for (const rep of b.reps) {
+        const t = totalRep(rep, b.distancia_m)
+        if (!t) continue
+        const ant = mejor.get(b.distancia_m)
+        if (!ant || t < ant.seg) mejor.set(b.distancia_m, { m: b.distancia_m, seg: t, fecha: s.fecha })
+      }
+  return [...mejor.values()].sort((a, b) => a.m - b.m).slice(0, 4)
 }
 
 // ---------- Rachas ----------

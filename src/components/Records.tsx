@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { calcularRecords, calcularRetos, resumenMeses, type Historial, type Reto } from '../lib/historial'
-import { hoyPY, nombreMes, primerDiaMes } from '../lib/fechas'
+import { hoyPY, nombreMes, primerDiaMes, sumarDias } from '../lib/fechas'
 import { formatoFecha, formatoKm, formatoRitmo } from '../lib/formato'
 import { tarjetaLista } from '../lib/tarjetas'
 import { BotonCompartir } from './Compartir'
@@ -9,16 +9,52 @@ import { Tarjeta, Titulo, Vacio } from './ui'
 /** 🏆 Mis récords: lo mejor de cada categoría, con fecha. */
 export function Records({ h, nombre }: { h: Historial; nombre?: string }) {
   const records = calcularRecords(h)
+  // Récord nuevo: logrado en las últimas 2 semanas.
+  const hace14 = sumarDias(hoyPY(), -14)
+  const esNuevo = (fecha: string | null) => !!fecha && fecha >= hace14
+  const vitrina = records.filter((r) => r.clave.startsWith('marca-') || r.clave.startsWith('pista-'))
+  const resto = records.filter((r) => !vitrina.includes(r))
   return (
     <section className="flex flex-col gap-3">
-      <div className="rounded-2xl bg-linear-to-br from-marino via-[#102a5c] to-azul p-4 text-white shadow-md">
-        <p className="font-titulo text-xl font-extrabold">🏆 Mis récords</p>
-        <p className="text-sm text-white/80">Lo mejor de cada categoría</p>
+      <div className="tarjeta-heroe rounded-3xl p-4 text-[#1B1300]" style={{ background: 'linear-gradient(135deg, #FFE08A, #F2A81D 60%, #C97A06)' }}>
+        <p className="font-titulo text-2xl font-black">🏆 Mi vitrina</p>
+        <p className="text-sm font-semibold opacity-80">Mis mejores marcas y lo mejor de cada categoría</p>
       </div>
       {records.length === 0 && <Vacio>Tus récords van a aparecer acá cuando registres tus primeras sesiones.</Vacio>}
+      {vitrina.length > 0 && (
+        <ul className="grid grid-cols-2 gap-2">
+          {vitrina.map((r, i) => {
+            const nuevo = esNuevo(r.fecha)
+            return (
+              <li
+                key={r.clave}
+                className={`relative flex animate-pop flex-col items-center gap-0.5 rounded-3xl border p-3 text-center ${
+                  nuevo ? 'border-volt shadow-[0_0_24px_-4px_rgba(200,255,61,0.55)]' : 'border-[#F2B544]/40'
+                }`}
+                style={{ background: 'linear-gradient(170deg, rgba(242,181,68,0.22), rgba(242,181,68,0.03))', animationDelay: `${i * 0.06}s` }}
+              >
+                {nuevo && <span className="boton-accion absolute -top-2 right-2 rounded-full px-2 text-[0.65rem] font-black uppercase">¡Nuevo!</span>}
+                <span className="text-3xl drop-shadow" aria-hidden="true">
+                  {r.clave.startsWith('pista-') ? '🏟️' : '🥇'}
+                </span>
+                <span className="text-xs font-bold uppercase tracking-wide text-texto-2">{r.titulo.replace('Marca ', '')}</span>
+                <span className="font-titulo text-2xl font-black tracking-tight text-tinta">{r.valor}</span>
+                <span className="w-full truncate text-[0.7rem] text-texto-2">
+                  {r.detalle}
+                  {r.fecha ? ` · ${formatoFecha(r.fecha)}` : ''}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
       <ul className="grid grid-cols-2 gap-2">
-        {records.map((r) => (
-          <li key={r.clave} className="flex flex-col gap-0.5 rounded-2xl border border-azul/25 bg-linear-to-br from-azul/12 to-transparent p-3">
+        {resto.map((r) => (
+          <li
+            key={r.clave}
+            className={`relative flex flex-col gap-0.5 rounded-3xl border bg-superficie p-3 ${esNuevo(r.fecha) ? 'border-volt shadow-[0_0_20px_-6px_rgba(200,255,61,0.5)]' : 'border-borde'}`}
+          >
+            {esNuevo(r.fecha) && <span className="boton-accion absolute -top-2 right-2 rounded-full px-2 text-[0.65rem] font-black uppercase">¡Nuevo!</span>}
             <span className="text-2xl" aria-hidden="true">
               {r.icono}
             </span>
