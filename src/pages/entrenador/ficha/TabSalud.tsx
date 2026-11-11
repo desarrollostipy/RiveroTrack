@@ -6,12 +6,14 @@ import { ZonasPulso } from '../../../components/salud/Pulso'
 import { FichaMedica } from '../../../components/salud/FichaMedica'
 import { Zapatillas } from '../../../components/salud/Zapatillas'
 import { Metas } from '../../../components/salud/Metas'
+import { CargaAcumulada } from '../../../components/salud/Descargas'
 
 /** Ficha del alumno → Salud: lo que el alumno cuenta y carga, para que el entrenador ajuste el plan. */
 export function TabSalud({ alumno, onCambio }: { alumno: Alumno; onCambio: () => void }) {
   const h = useHistorial(alumno.id)
   return (
     <div className="flex flex-col gap-3">
+      <CargaAcumulada alumnoId={alumno.id} nombre={alumno.nombre} modo="entrenador" onCambio={onCambio} />
       <HistorialBienestar alumnoId={alumno.id} />
       <Molestias alumnoId={alumno.id} />
       <FichaMedica alumnoId={alumno.id} />

@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { kmCorridos } from '../../lib/extras'
+import { AvisoDescarga } from '../../components/salud/Descargas'
 import { formatoKm } from '../../lib/formato'
 import type { SesionCompleta, TipoSesion } from '../../lib/tipos'
 import { Anillo, Hoja, Numero } from '../../components/ui'
@@ -177,6 +178,7 @@ export default function Hoy() {
       <AnunciosAlumno />
       <AvisoZapatillas alumnoId={alumno.id} />
       <AvisoCuota cuotas={cuotas} cuotaMensual={alumno.cuota_mensual} dia={alumno.dia_vencimiento} />
+      <AvisoDescarga alumnoId={alumno.id} />
 
       {modoCarrera && competencia && faltan !== null && (
         <CuentaRegresiva competencia={competencia} faltan={faltan} hechas={activas.filter((s) => s.registro).length} plan={activas.length} kmPlan={kmPlan} />

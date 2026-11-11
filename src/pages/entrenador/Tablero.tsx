@@ -5,8 +5,10 @@ import { cargarSemanas } from '../../lib/consultas'
 import { alertasAlumno, estadoDeuda } from '../../lib/calculos'
 import { cargarCiclosCompartidos, faseCompartida, type CicloCompartido } from '../../lib/ciclo'
 import { kmCorridos } from '../../lib/extras'
+import { cargarCargas, estadoCarga, recomendarDescarga, type Carga } from '../../lib/descargas'
 import { fechaLarga, hoyPY, lunesDe, rangoSemana } from '../../lib/fechas'
-import { formatoKm } from '../../lib/formato'
+import { formatoFecha, formatoKm } from '../../lib/formato'
+import { FormUmbral } from '../../components/salud/Descargas'
 import type { Alumno, Cuota, SemanaCompleta } from '../../lib/tipos'
 import type { Perfil } from '../../lib/sesion'
 import { Pantalla } from '../../components/Pantalla'
@@ -31,7 +33,14 @@ export default function Tablero() {
   const [perfiles, setPerfiles] = useState<Record<string, Perfil>>({})
   const [ciclos, setCiclos] = useState<Map<string, CicloCompartido>>(new Map())
   const [error, setError] = useState('')
-  const [vista, setVista] = useState<'hoy' | 'carga'>('hoy')
+  const [vista, setVista] = useState<'hoy' | 'carga' | 'descargas'>('hoy')
+  // Carga acumulada desde la última descarga (null si todavía no se corrió el SQL).
+  const [cargas, setCargas] = useState<Carga[] | null>(null)
+  const recargarCargas = () => cargarCargas().then(setCargas)
+
+  useEffect(() => {
+    recargarCargas()
+  }, [])
 
   useEffect(() => {
     ;(async () => {
@@ -75,9 +84,10 @@ export default function Tablero() {
         const kmHastaHoy = activas.filter((s) => s.fecha <= hoy).reduce((t, s) => t + Number(s.distancia_km ?? 0), 0)
         const c = ciclos.get(a.id)
         const fase = c ? faseCompartida(c.registros, c.info, hoy) : null
-        return { a, estado, porEvaluar, alertas, deuda, kmPlan, kmHecho, kmHastaHoy, fase }
+        const carga = cargas?.find((x) => x.alumno_id === a.id) ?? null
+        return { a, estado, porEvaluar, alertas, deuda, kmPlan, kmHecho, kmHastaHoy, fase, carga }
       }),
-    [alumnos, semanas, cuotas, ciclos, hoy],
+    [alumnos, semanas, cuotas, ciclos, cargas, hoy],
   )
 
   const cuenta = (e: EstadoHoy) => filas.filter((f) => f.estado === e).length
@@ -105,7 +115,8 @@ export default function Tablero() {
             onChange={setVista}
             opciones={[
               { valor: 'hoy', texto: '👥 Hoy' },
-              { valor: 'carga', texto: '📊 Carga de la semana' },
+              { valor: 'carga', texto: '📊 Semana' },
+              ...(cargas ? [{ valor: 'descargas' as const, texto: '💆 Descargas' }] : []),
             ]}
           />
 
@@ -134,6 +145,11 @@ export default function Tablero() {
                         )}
                         {f.deuda.vencidas.length > 0 && <span className="rounded-full bg-mal px-1.5 text-[0.7rem] font-bold text-white">💸 cuota</span>}
                         {f.fase && <ChipFase e={f.fase} corto />}
+                        {f.carga && estadoCarga(f.carga).nivel === 'toca' && (
+                          <span className="rounded-full bg-[#FF6B6B]/15 px-1.5 text-[0.7rem] font-bold text-[#FF6B6B]" title={`${formatoKm(f.carga.km)} km desde la última descarga`}>
+                            💆 {Math.round(f.carga.km)} km
+                          </span>
+                        )}
                       </span>
                       {f.kmPlan > 0 && (
                         <span className="mt-auto block">
@@ -154,9 +170,97 @@ export default function Tablero() {
           )}
 
           {vista === 'carga' && <CargaSemana filas={filas} lunes={lunes} />}
+          {vista === 'descargas' && <Descargas filas={filas} onCambio={recargarCargas} />}
         </>
       )}
     </Pantalla>
+  )
+}
+
+/** Carga acumulada de cada alumno desde su última descarga: a quién recomendarle fisio. */
+function Descargas({ filas, onCambio }: { filas: { a: Alumno; carga: Carga | null }[]; onCambio: () => void }) {
+  const [enviando, setEnviando] = useState<string | null>(null)
+  const [aviso, setAviso] = useState('')
+  const [umbralTodos, setUmbralTodos] = useState(false)
+  const con = filas.filter((f): f is { a: Alumno; carga: Carga } => !!f.carga)
+  // Primero los que tienen registro (de más cargado a menos), al final los que todavía no registraron ninguna.
+  const peso = (c: Carga) => (estadoCarga(c).nivel === 'sin_dato' ? -1 : estadoCarga(c).pct)
+  const ordenadas = [...con].sort((x, y) => peso(y.carga) - peso(x.carga))
+  const tocan = con.filter((f) => estadoCarga(f.carga).nivel === 'toca').length
+  const sinDato = con.filter((f) => estadoCarga(f.carga).nivel === 'sin_dato').length
+
+  async function recomendar(f: { a: Alumno; carga: Carga }) {
+    setAviso('')
+    setEnviando(f.a.id)
+    const err = await recomendarDescarga(f.a.id, f.a.nombre, f.carga)
+    setEnviando(null)
+    setAviso(err ? 'No se pudo enviar. Revisá tu conexión.' : `Recomendación enviada a ${f.a.nombre.split(' ')[0]} por el chat.`)
+    if (!err) onCambio()
+  }
+
+  return (
+    <Tarjeta>
+      <Titulo>💆 Carga acumulada</Titulo>
+      <p className="-mt-1 mb-3 text-sm text-texto-2">
+        Km desde la última descarga muscular de cada uno. {tocan > 0 ? <b className="text-[#FF6B6B]">{tocan} ya pasaron su límite.</b> : 'Nadie pasó su límite.'}
+        {sinDato > 0 && ` ${sinDato} todavía no registraron ninguna descarga (en gris, con sus km de las últimas 4 semanas): pediles que carguen la última en Mi salud → Carga.`}
+      </p>
+      {aviso && <p className="mb-2 text-sm font-semibold text-ok">{aviso}</p>}
+      <ul className="flex flex-col gap-3">
+        {ordenadas.map((f) => {
+          const e = estadoCarga(f.carga)
+          return (
+            <li key={f.a.id} className="flex items-center gap-2">
+              <Link to={`/alumnos/${f.a.id}?tab=salud`} className="min-w-0 flex-1">
+                <span className="mb-0.5 flex items-center justify-between gap-2 text-sm">
+                  <span className="truncate font-semibold">{f.a.nombre.split(' ').slice(0, 2).join(' ')}</span>
+                  <span className="shrink-0 font-mono text-xs">
+                    {formatoKm(f.carga.km)}/{f.carga.umbral_km} km{' '}
+                    <span className="rounded-full px-1.5 font-sans font-bold" style={{ color: e.color, background: `color-mix(in oklab, ${e.color} 15%, transparent)` }}>
+                      {e.texto}
+                    </span>
+                  </span>
+                </span>
+                <span className="block h-2.5 overflow-hidden rounded-full bg-borde">
+                  <span className="block h-full rounded-full" style={{ width: `${Math.min(100, 100 * e.pct)}%`, background: e.nivel === 'sin_dato' ? 'var(--color-texto-2)' : e.color, opacity: e.nivel === 'sin_dato' ? 0.35 : 1 }} />
+                </span>
+                <span className="mt-0.5 block text-[0.7rem] text-texto-2">
+                  {f.carga.ultima_descarga ? `Última: ${formatoFecha(f.carga.ultima_descarga)}` : 'Sin descargas registradas (últimas 4 semanas)'}
+                  {f.carga.recomendada_el && ` · 💬 recomendada el ${formatoFecha(f.carga.recomendada_el)}`}
+                </span>
+              </Link>
+              {(e.nivel === 'cerca' || e.nivel === 'toca') && !f.carga.recomendada_el && (
+                <button
+                  type="button"
+                  onClick={() => recomendar(f)}
+                  disabled={enviando === f.a.id}
+                  className="boton-accion min-h-10 shrink-0 rounded-full px-3 text-xs font-bold"
+                  aria-label={`Recomendar descarga a ${f.a.nombre}`}
+                >
+                  {enviando === f.a.id ? '…' : '💬 Recomendar'}
+                </button>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      <p className="mt-3 text-xs text-texto-2">
+        Verde: bien · amarillo: pasó el 75 % del límite · rojo: toca descarga. Tocá un nombre para ver su historial o cambiarle el límite.
+      </p>
+      <button type="button" className="mt-2 text-sm font-semibold text-azul underline" onClick={() => setUmbralTodos(true)}>
+        ⚙️ Cambiar el límite para todos
+      </button>
+      <FormUmbral
+        abierta={umbralTodos}
+        alumnoIds={con.map((f) => f.a.id)}
+        actual={150}
+        onCerrar={() => setUmbralTodos(false)}
+        onGuardado={() => {
+          setUmbralTodos(false)
+          onCambio()
+        }}
+      />
+    </Tarjeta>
   )
 }
 

@@ -18,6 +18,7 @@ export type Alumno = {
   altura_cm: number | null
   sexo: 'F' | 'M'
   comparte_ciclo: boolean
+  km_descarga?: number | null // límite de km entre descargas musculares (null = 150)
   cuota_mensual: number
   dia_vencimiento: number
   activo: boolean

@@ -6,8 +6,9 @@ import { HistorialBienestar } from '../../components/salud/Bienestar'
 import { Molestias } from '../../components/salud/Molestias'
 import { ZonasPulso } from '../../components/salud/Pulso'
 import { FichaMedica } from '../../components/salud/FichaMedica'
+import { CargaAcumulada } from '../../components/salud/Descargas'
 
-type Tab = 'bienestar' | 'molestias' | 'pulso' | 'ficha'
+type Tab = 'bienestar' | 'molestias' | 'carga' | 'pulso' | 'ficha'
 
 /** Mi salud: bienestar, molestias, zonas de pulso y ficha médica. */
 export default function Salud() {
@@ -24,12 +25,14 @@ export default function Salud() {
         opciones={[
           { valor: 'bienestar', texto: '☀️ Día' },
           { valor: 'molestias', texto: '🩹 Dolor' },
+          { valor: 'carga', texto: '💆 Carga' },
           { valor: 'pulso', texto: '❤️ Pulso' },
           { valor: 'ficha', texto: '🆘 Ficha' },
         ]}
       />
       {tab === 'bienestar' && <HistorialBienestar alumnoId={alumno.id} />}
       {tab === 'molestias' && <Molestias alumnoId={alumno.id} puedeCargar />}
+      {tab === 'carga' && <CargaAcumulada alumnoId={alumno.id} nombre={alumno.nombre} modo="alumno" />}
       {tab === 'pulso' && <ZonasPulso alumno={alumno} modo="alumno" onCambio={recargar} />}
       {tab === 'ficha' && <FichaMedica alumnoId={alumno.id} />}
     </Pantalla>
