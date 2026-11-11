@@ -14,7 +14,7 @@ const SENSACION = ['', '😣 Muy mal', '😕 Mal', '🙂 Normal', '😄 Bien', '
 
 /** Arma la imagen de un entrenamiento registrado. */
 export function imagenDeSesion(o: {
-  registro: Pick<SesionReg, 'fecha' | 'distancia_km' | 'duracion_seg' | 'ritmo_prom_seg' | 'fc_prom' | 'sensacion' | 'splits'> & { datos_crudos?: { desnivel_m?: number | null } | null; calentamiento_km?: number | null; afloje_km?: number | null; reps_hechas?: number | null; rep_prom_seg?: number | null; rep_m?: number | null; pista_bloques?: unknown }
+  registro: Pick<SesionReg, 'fecha' | 'distancia_km' | 'duracion_seg' | 'ritmo_prom_seg' | 'fc_prom' | 'sensacion' | 'splits'> & { datos_crudos?: { desnivel_m?: number | null } | null; calentamiento_km?: number | null; afloje_km?: number | null; recuperacion_km?: number | null; reps_hechas?: number | null; rep_prom_seg?: number | null; rep_m?: number | null; pista_bloques?: unknown }
   tipo: string
   titulo: string
   nombre: string

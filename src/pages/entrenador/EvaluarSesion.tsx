@@ -166,6 +166,7 @@ export default function EvaluarSesion() {
               )}
               {r.duracion_seg && <p>{formatoDuracion(r.duracion_seg)}</p>}
               <ResumenPista bloques={leerBloques(r.pista_bloques)} />
+              {r.recuperacion_km ? <p className="text-xs text-[#0F6E78]">🔁 + {formatoKm(r.recuperacion_km)} km trotados en las recuperaciones</p> : null}
               {(r.calentamiento_km || r.calentamiento_min || r.calentamiento_garmin_url) && (
                 <ParteRegistrada titulo="🔥 Calentamiento" km={r.calentamiento_km} min={r.calentamiento_min} fcp={r.calentamiento_fc_prom} fcm={r.calentamiento_fc_max} link={r.calentamiento_garmin_url} />
               )}

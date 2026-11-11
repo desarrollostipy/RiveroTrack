@@ -50,8 +50,8 @@ export function useExtras(alumnoId: string, desde: string, hasta: string) {
   return { extras: lista, recargarExtras: cargar }
 }
 
-/** Km corridos en una sesión: parte principal + calentamiento + afloje. */
-export function kmCorridos(r: { distancia_km: number | null; calentamiento_km?: number | null; afloje_km?: number | null } | null | undefined) {
+/** Km corridos en una sesión: parte principal + calentamiento + afloje + recuperaciones trotadas. */
+export function kmCorridos(r: { distancia_km: number | null; calentamiento_km?: number | null; afloje_km?: number | null; recuperacion_km?: number | null } | null | undefined) {
   if (!r) return 0
-  return Number(r.distancia_km ?? 0) + Number(r.calentamiento_km ?? 0) + Number(r.afloje_km ?? 0)
+  return Number(r.distancia_km ?? 0) + Number(r.calentamiento_km ?? 0) + Number(r.afloje_km ?? 0) + Number(r.recuperacion_km ?? 0)
 }

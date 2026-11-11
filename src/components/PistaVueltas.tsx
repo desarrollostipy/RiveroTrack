@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { leerDuracion } from '../lib/formato'
+import { formatoKm, leerDuracion } from '../lib/formato'
 import { textoDistanciaRep, textoTiempo } from '../lib/intervalos'
-import { DISTANCIAS_PISTA, resumenBloque, resumenPista, textoBloque, totalRep, tramos, type BloquePista } from '../lib/pista'
+import { DISTANCIAS_PISTA, metrosRecuperacion, resumenBloque, resumenPista, textoBloque, totalRep, tramos, type BloquePista, type RecModo } from '../lib/pista'
 import { Anillo, Boton, lanzarConfeti } from './ui'
 
 type RepUI = { vueltas: string[]; rec: string }
-type BloqueUI = { clave: number; distancia_m: number; reps: RepUI[] }
+type BloqueUI = { clave: number; distancia_m: number; reps: RepUI[]; rec_modo: RecModo | null; rec_m: string }
 
 // "128" → "1:28" mientras se tipea (y "16" son 16 segundos).
 export function formatearTiempoTipeo(v: string) {
@@ -23,10 +23,15 @@ let siguiente = 1
 const repVacia = (distancia_m: number): RepUI => ({ vueltas: tramos(distancia_m).map(() => ''), rec: '' })
 
 function aBloques(ui: BloqueUI[]): BloquePista[] {
-  return ui.map((b) => ({
-    distancia_m: b.distancia_m,
-    reps: b.reps.map((r) => ({ vueltas: r.vueltas.map((v) => leerTiempoVuelta(v) ?? 0), rec_seg: leerTiempoVuelta(r.rec) })),
-  }))
+  return ui.map((b) => {
+    const m = Math.round(Number(b.rec_m) || 0)
+    return {
+      distancia_m: b.distancia_m,
+      reps: b.reps.map((r) => ({ vueltas: r.vueltas.map((v) => leerTiempoVuelta(v) ?? 0), rec_seg: leerTiempoVuelta(r.rec) })),
+      rec_modo: b.rec_modo,
+      rec_m: b.rec_modo === 'trote' && m > 0 ? m : null,
+    }
+  })
 }
 
 /**
@@ -39,6 +44,8 @@ export function EditorPista({ inicial, onChange }: { inicial: BloquePista[]; onC
       clave: siguiente++,
       distancia_m: b.distancia_m,
       reps: b.reps.map((r) => ({ vueltas: tramos(b.distancia_m).map((_, i) => aTexto(r.vueltas[i])), rec: aTexto(r.rec_seg) })),
+      rec_modo: b.rec_modo ?? null,
+      rec_m: b.rec_m ? String(b.rec_m) : '',
     })),
   )
   const [cantidad, setCantidad] = useState('6')
@@ -56,7 +63,8 @@ export function EditorPista({ inicial, onChange }: { inicial: BloquePista[]; onC
     const m = otra ? Math.round(Number(otra.replace(/\D/g, ''))) : distancia
     const n = Math.round(Number(cantidad) || 0)
     if (!m || m < 50 || m > 20000 || n < 1 || n > 40) return
-    setBloques((l) => [...l, { clave: siguiente++, distancia_m: m, reps: Array.from({ length: n }, () => repVacia(m)) }])
+    // La forma de recuperar se copia del bloque anterior (casi siempre es la misma).
+    setBloques((l) => [...l, { clave: siguiente++, distancia_m: m, reps: Array.from({ length: n }, () => repVacia(m)), rec_modo: l[l.length - 1]?.rec_modo ?? null, rec_m: l[l.length - 1]?.rec_m ?? '' }])
     setOtra('')
   }
 
@@ -168,6 +176,7 @@ export function EditorPista({ inicial, onChange }: { inicial: BloquePista[]; onC
                 Copiar la primera recuperación a todas
               </button>
             )}
+            {b.reps.length > 1 && <ModoRecuperacion b={b} onCambiar={(rec_modo, rec_m) => cambiar(b.clave, (x) => ({ ...x, rec_modo, rec_m }))} />}
             {res && <p className="mt-2 rounded-lg bg-azul/10 px-3 py-2 text-sm font-semibold text-azul">📊 {textoBloque(aBloques([b])[0])}</p>}
           </div>
         )
@@ -415,12 +424,74 @@ function ModoPista({
   )
 }
 
+const OPCIONES_REC: { valor: RecModo; texto: string }[] = [
+  { valor: 'parado', texto: '🧍 Parado' },
+  { valor: 'caminando', texto: '🚶 Caminando' },
+  { valor: 'trote', texto: '🏃 Trotando' },
+]
+const METROS_REC = [100, 200, 300, 400]
+
+/** Cómo recuperó entre repeticiones. Trotando, esos metros suman a los km del día (no al ritmo). */
+function ModoRecuperacion({ b, onCambiar }: { b: BloqueUI; onCambiar: (modo: RecModo | null, m: string) => void }) {
+  const m = Math.round(Number(b.rec_m) || 0)
+  const metros = metrosRecuperacion(aBloques([b])[0])
+  const otra = !!b.rec_m && !METROS_REC.includes(m)
+  return (
+    <div className="mt-2 rounded-lg bg-[#0F6E78]/5 p-2">
+      <p className="text-xs font-semibold text-[#0F6E78]">¿Cómo recuperaste entre repeticiones?</p>
+      <div className="mt-1 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Cómo recuperaste">
+        {OPCIONES_REC.map((o) => (
+          <button
+            key={o.valor}
+            type="button"
+            role="radio"
+            aria-checked={b.rec_modo === o.valor}
+            onClick={() => onCambiar(b.rec_modo === o.valor ? null : o.valor, b.rec_m)}
+            className={`min-h-9 rounded-full border px-3 text-sm font-semibold ${b.rec_modo === o.valor ? 'border-[#0F6E78] bg-[#0F6E78] text-white' : 'border-borde bg-superficie'}`}
+          >
+            {o.texto}
+          </button>
+        ))}
+      </div>
+      {b.rec_modo === 'trote' && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-texto-2">Cada recuperación:</span>
+          {METROS_REC.map((x) => (
+            <button
+              key={x}
+              type="button"
+              aria-pressed={m === x}
+              onClick={() => onCambiar('trote', String(x))}
+              className={`min-h-9 rounded-full border px-3 font-mono text-sm ${m === x ? 'border-[#0F6E78] bg-[#0F6E78] text-white' : 'border-borde bg-superficie'}`}
+            >
+              {x} m
+            </button>
+          ))}
+          <input
+            inputMode="numeric"
+            aria-label="Otra distancia de recuperación en metros"
+            placeholder="otra"
+            className={`min-h-9 w-16 rounded-full border px-2 text-center font-mono text-sm ${otra ? 'border-[#0F6E78]' : 'border-borde'} bg-superficie`}
+            value={otra ? b.rec_m : ''}
+            onChange={(e) => onCambiar('trote', e.target.value.replace(/\D/g, '').slice(0, 4))}
+          />
+        </div>
+      )}
+      {metros > 0 && (
+        <p className="mt-1 text-xs font-semibold text-[#0F6E78]">+ {metros >= 1000 ? `${formatoKm(metros / 1000)} km` : `${metros} m`} trotados: suman a tus km del día</p>
+      )}
+      {b.rec_modo === 'trote' && !m && <p className="mt-1 text-xs text-texto-2">Elegí cuántos metros trotaste en cada recuperación.</p>}
+    </div>
+  )
+}
+
 /** Vista de solo lectura (para el entrenador): cada bloque con sus repeticiones y su resumen. */
 export function ResumenPista({ bloques }: { bloques: BloquePista[] }) {
   if (!bloques.length) return null
   return (
     <div className="flex flex-col gap-2 rounded-xl bg-azul/5 p-3 text-sm">
       <p className="font-semibold">🏟️ Pista vuelta por vuelta</p>
+      <p className="-mt-1 text-xs text-texto-2">📏 Distancia medida con la pista (no con el GPS).</p>
       {bloques.map((b, i) => (
         <div key={i}>
           <p className="font-semibold text-azul">📊 {textoBloque(b)}</p>

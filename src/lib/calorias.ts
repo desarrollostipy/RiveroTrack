@@ -23,6 +23,7 @@ export type SesionEnergia = {
   afloje_min?: number | null
   calentamiento_fc_prom?: number | null
   afloje_fc_prom?: number | null
+  recuperacion_km?: number | null
   fc_prom: number | null
   calorias?: number | null
 }
@@ -50,7 +51,9 @@ export function kcalSesion(s: SesionEnergia, c: DatosCuerpo) {
   const parte = (k?: number | null, m?: number | null, fc?: number | null) =>
     (m ? keytel(fc ?? null, Number(m), c) : null) ?? (k ? Number(k) * c.kg : m ? (7 * c.kg * Number(m)) / 60 : 0)
   return {
-    kcal: Math.round(principal + parte(s.calentamiento_km, s.calentamiento_min, s.calentamiento_fc_prom) + parte(s.afloje_km, s.afloje_min, s.afloje_fc_prom)),
+    kcal: Math.round(
+      principal + parte(s.calentamiento_km, s.calentamiento_min, s.calentamiento_fc_prom) + parte(s.afloje_km, s.afloje_min, s.afloje_fc_prom) + Number(s.recuperacion_km ?? 0) * c.kg,
+    ),
     delReloj: false,
   }
 }
@@ -112,7 +115,10 @@ export function useEnergia(alumnoId: string, desde: string, hasta: string, versi
     // Igual con el pulso del calentamiento y del afloje: se prueba de lo más completo a lo mínimo.
     const leer = async (tabla: string, columnas: string, nuevas = '') => {
       const q = (c: string) => supabase.from(tabla).select(c).eq('alumno_id', alumnoId).gte('fecha', desde).lte('fecha', hasta)
-      for (const c of [nuevas && `${columnas}, calorias, ${nuevas}`, `${columnas}, calorias`, columnas].filter(Boolean)) {
+      // nuevas: grupos separados por "|", del más nuevo al más viejo (se van sacando si la base no los tiene).
+      const grupos = nuevas ? nuevas.split('|').map((g) => g.trim()) : []
+      const intentos = grupos.map((_, i) => `${columnas}, calorias, ${grupos.slice(i).join(', ')}`)
+      for (const c of [...intentos, `${columnas}, calorias`, columnas]) {
         const r = await q(c)
         if (!r.error) return r.data ?? []
       }
@@ -120,7 +126,7 @@ export function useEnergia(alumnoId: string, desde: string, hasta: string, versi
     }
     Promise.all([
       cargarCuerpo(alumnoId),
-      leer('sesiones_registradas', 'fecha, distancia_km, duracion_seg, calentamiento_km, calentamiento_min, afloje_km, afloje_min, fc_prom', 'calentamiento_fc_prom, afloje_fc_prom'),
+      leer('sesiones_registradas', 'fecha, distancia_km, duracion_seg, calentamiento_km, calentamiento_min, afloje_km, afloje_min, fc_prom', 'recuperacion_km | calentamiento_fc_prom, afloje_fc_prom'),
       leer('actividades_extra', 'fecha, deporte, duracion_min, distancia_km, fc_prom'),
       cargarCompetenciasHechas(alumnoId, desde, hasta),
     ]).then(([cuerpo, s, x, comps]) => {

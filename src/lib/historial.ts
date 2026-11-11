@@ -48,7 +48,7 @@ export async function cargarHistorial(alumnoId: string): Promise<Historial> {
       return {
         fecha: x.fecha,
         distancia_km: x.distancia_km === null ? null : Number(x.distancia_km),
-        km_total: Number(x.distancia_km ?? 0) + Number(x.calentamiento_km ?? 0) + Number(x.afloje_km ?? 0),
+        km_total: Number(x.distancia_km ?? 0) + Number(x.calentamiento_km ?? 0) + Number(x.afloje_km ?? 0) + Number(x.recuperacion_km ?? 0),
         duracion_seg: x.duracion_seg,
         ritmo_prom_seg: x.ritmo_prom_seg,
         fc_prom: x.fc_prom,
